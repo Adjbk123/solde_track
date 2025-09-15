@@ -9,6 +9,7 @@ use App\Service\DefaultComptesService;
 use App\Service\UserDeviseService;
 use App\Service\PhotoUploadService;
 use Doctrine\ORM\EntityManagerInterface;
+use Lexik\Bundle\JWTAuthenticationBundle\Services\JWTTokenManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -28,7 +29,8 @@ class AuthController extends AbstractController
         private DefaultDevisesService $defaultDevisesService,
         private DefaultComptesService $defaultComptesService,
         private UserDeviseService $userDeviseService,
-        private PhotoUploadService $photoUploadService
+        private PhotoUploadService $photoUploadService,
+        private JWTTokenManagerInterface $jwtManager
     ) {}
 
     #[Route('/register', name: 'register', methods: ['POST'])]
@@ -101,16 +103,30 @@ class AuthController extends AbstractController
         // Créer les comptes par défaut pour le nouvel utilisateur
         $this->defaultComptesService->createDefaultComptesForUser($user);
 
+        // Générer le token JWT pour connecter automatiquement l'utilisateur
+        $token = $this->jwtManager->create($user);
+
         return new JsonResponse([
-            'message' => 'Utilisateur créé avec succès',
+            'message' => 'Inscription réussie et connexion automatique',
+            'token' => $token,
             'user' => [
                 'id' => $user->getId(),
                 'email' => $user->getEmail(),
                 'nom' => $user->getNom(),
                 'prenoms' => $user->getPrenoms(),
-                'photo' => $user->getPhoto(),
+                'photo' => $user->getPhoto() ? $this->photoUploadService->getPublicUrl($user->getPhoto()) : null,
                 'dateNaissance' => $user->getDateNaissance()?->format('Y-m-d'),
-                'devise' => $user->getDevise()?->getCode()
+                'dateCreation' => $user->getDateCreation()->format('Y-m-d H:i:s'),
+                'devise' => [
+                    'id' => $user->getDevise()->getId(),
+                    'code' => $user->getDevise()->getCode(),
+                    'nom' => $user->getDevise()->getNom()
+                ]
+            ],
+            'setup' => [
+                'categories_created' => true,
+                'comptes_created' => true,
+                'message' => 'Catégories et comptes par défaut créés automatiquement'
             ]
         ], Response::HTTP_CREATED);
     }
@@ -136,16 +152,25 @@ class AuthController extends AbstractController
             ], Response::HTTP_UNAUTHORIZED);
         }
 
-        // Le JWT sera généré automatiquement par le bundle
+        // Générer le token JWT
+        $token = $this->jwtManager->create($user);
+
         return new JsonResponse([
             'message' => 'Connexion réussie',
+            'token' => $token,
             'user' => [
                 'id' => $user->getId(),
                 'email' => $user->getEmail(),
                 'nom' => $user->getNom(),
                 'prenoms' => $user->getPrenoms(),
-                'photo' => $user->getPhoto(),
-                'dateNaissance' => $user->getDateNaissance()?->format('Y-m-d')
+                'photo' => $user->getPhoto() ? $this->photoUploadService->getPublicUrl($user->getPhoto()) : null,
+                'dateNaissance' => $user->getDateNaissance()?->format('Y-m-d'),
+                'dateCreation' => $user->getDateCreation()->format('Y-m-d H:i:s'),
+                'devise' => [
+                    'id' => $user->getDevise()->getId(),
+                    'code' => $user->getDevise()->getCode(),
+                    'nom' => $user->getDevise()->getNom()
+                ]
             ]
         ]);
     }
