@@ -104,13 +104,14 @@ class ProfileController extends AbstractController
                 'email' => $user->getEmail(),
                 'nom' => $user->getNom(),
                 'prenoms' => $user->getPrenoms(),
-                'photo' => $user->getPhoto(),
+                'photo' => $user->getPhoto() ? $this->photoUploadService->getPublicUrl($user->getPhoto()) : null,
                 'dateNaissance' => $user->getDateNaissance()?->format('Y-m-d'),
                 'devise' => [
                     'id' => $user->getDevise()?->getId(),
                     'code' => $user->getDevise()?->getCode(),
                     'nom' => $user->getDevise()?->getNom()
-                ]
+                ],
+                'dateCreation' => $user->getDateCreation()?->format('Y-m-d H:i:s')
             ]
         ]);
     }
@@ -262,6 +263,256 @@ class ProfileController extends AbstractController
                 'code' => $devise->getCode(),
                 'nom' => $devise->getNom()
             ]
+        ]);
+    }
+
+    #[Route('/change-password', name: 'change_password', methods: ['POST'])]
+    public function changePassword(Request $request): JsonResponse
+    {
+        $user = $this->getUser();
+        if (!$user instanceof User) {
+            return new JsonResponse(['error' => 'Non authentifié'], Response::HTTP_UNAUTHORIZED);
+        }
+
+        $data = json_decode($request->getContent(), true);
+
+        if (!isset($data['currentPassword']) || !isset($data['newPassword'])) {
+            return new JsonResponse([
+                'error' => 'Données manquantes',
+                'message' => 'Mot de passe actuel et nouveau mot de passe sont requis'
+            ], Response::HTTP_BAD_REQUEST);
+        }
+
+        // Vérifier le mot de passe actuel
+        if (!$this->passwordHasher->isPasswordValid($user, $data['currentPassword'])) {
+            return new JsonResponse([
+                'error' => 'Mot de passe incorrect',
+                'message' => 'Le mot de passe actuel est incorrect'
+            ], Response::HTTP_BAD_REQUEST);
+        }
+
+        // Valider le nouveau mot de passe
+        if (strlen($data['newPassword']) < 6) {
+            return new JsonResponse([
+                'error' => 'Mot de passe trop court',
+                'message' => 'Le nouveau mot de passe doit contenir au moins 6 caractères'
+            ], Response::HTTP_BAD_REQUEST);
+        }
+
+        // Hasher et définir le nouveau mot de passe
+        $hashedPassword = $this->passwordHasher->hashPassword($user, $data['newPassword']);
+        $user->setPassword($hashedPassword);
+
+        $this->entityManager->flush();
+
+        return new JsonResponse([
+            'message' => 'Mot de passe modifié avec succès'
+        ]);
+    }
+
+    #[Route('/statistiques', name: 'statistiques', methods: ['GET'])]
+    public function getStatistiques(): JsonResponse
+    {
+        $user = $this->getUser();
+        if (!$user instanceof User) {
+            return new JsonResponse(['error' => 'Non authentifié'], Response::HTTP_UNAUTHORIZED);
+        }
+
+        $mouvementRepo = $this->entityManager->getRepository(\App\Entity\Mouvement::class);
+        $compteRepo = $this->entityManager->getRepository(\App\Entity\Compte::class);
+        $projetRepo = $this->entityManager->getRepository(\App\Entity\Projet::class);
+        $categorieRepo = $this->entityManager->getRepository(\App\Entity\Categorie::class);
+        $contactRepo = $this->entityManager->getRepository(\App\Entity\Contact::class);
+
+        // Statistiques générales
+        $totalMouvements = count($mouvementRepo->findBy(['user' => $user]));
+        $totalComptes = count($compteRepo->findBy(['user' => $user]));
+        $totalProjets = count($projetRepo->findBy(['user' => $user]));
+        $totalCategories = count($categorieRepo->findBy(['user' => $user]));
+        $totalContacts = count($contactRepo->findBy(['user' => $user]));
+
+        // Solde total
+        $soldeTotal = $mouvementRepo->getSoldeTotal($user);
+
+        // Dernière activité
+        $dernierMouvement = $mouvementRepo->findOneBy(['user' => $user], ['date' => 'DESC']);
+
+        return new JsonResponse([
+            'statistiques' => [
+                'totalMouvements' => $totalMouvements,
+                'totalComptes' => $totalComptes,
+                'totalProjets' => $totalProjets,
+                'totalCategories' => $totalCategories,
+                'totalContacts' => $totalContacts,
+                'soldeTotal' => number_format($soldeTotal, 2, '.', ''),
+                'soldeTotalFormatted' => $this->userDeviseService->formatAmount($user, $soldeTotal)
+            ],
+            'derniereActivite' => $dernierMouvement ? [
+                'id' => $dernierMouvement->getId(),
+                'type' => $dernierMouvement->getType(),
+                'typeLabel' => $dernierMouvement->getTypeLabel(),
+                'montant' => $dernierMouvement->getMontantEffectif(),
+                'montantFormatted' => $this->userDeviseService->formatAmount($user, (float) $dernierMouvement->getMontantEffectif()),
+                'date' => $dernierMouvement->getDate()->format('Y-m-d H:i:s'),
+                'description' => $dernierMouvement->getDescription()
+            ] : null,
+            'compte' => [
+                'dateCreation' => $user->getDateCreation()->format('Y-m-d H:i:s'),
+                'joursActif' => $user->getDateCreation()->diff(new \DateTime())->days
+            ]
+        ]);
+    }
+
+    #[Route('/preferences', name: 'preferences', methods: ['GET'])]
+    public function getPreferences(): JsonResponse
+    {
+        $user = $this->getUser();
+        if (!$user instanceof User) {
+            return new JsonResponse(['error' => 'Non authentifié'], Response::HTTP_UNAUTHORIZED);
+        }
+
+        return new JsonResponse([
+            'preferences' => [
+                'devise' => [
+                    'id' => $user->getDevise()->getId(),
+                    'code' => $user->getDevise()->getCode(),
+                    'nom' => $user->getDevise()->getNom()
+                ],
+                'notifications' => [
+                    'dettesEnRetard' => true,
+                    'nouveauxMouvements' => true,
+                    'rapportsMensuels' => false
+                ],
+                'affichage' => [
+                    'formatDate' => 'DD/MM/YYYY',
+                    'formatMontant' => 'avecSeparateurs',
+                    'theme' => 'clair'
+                ]
+            ]
+        ]);
+    }
+
+    #[Route('/preferences', name: 'update_preferences', methods: ['PUT'])]
+    public function updatePreferences(Request $request): JsonResponse
+    {
+        $user = $this->getUser();
+        if (!$user instanceof User) {
+            return new JsonResponse(['error' => 'Non authentifié'], Response::HTTP_UNAUTHORIZED);
+        }
+
+        $data = json_decode($request->getContent(), true);
+
+        // Mettre à jour la devise si fournie
+        if (isset($data['devise_id'])) {
+            $devise = $this->entityManager->getRepository(Devise::class)->find($data['devise_id']);
+            if ($devise) {
+                $this->userDeviseService->changeUserDevise($user, $devise);
+            }
+        }
+
+        return new JsonResponse([
+            'message' => 'Préférences mises à jour avec succès',
+            'preferences' => [
+                'devise' => [
+                    'id' => $user->getDevise()->getId(),
+                    'code' => $user->getDevise()->getCode(),
+                    'nom' => $user->getDevise()->getNom()
+                ]
+            ]
+        ]);
+    }
+
+    #[Route('/export-data', name: 'export_data', methods: ['GET'])]
+    public function exportData(): JsonResponse
+    {
+        $user = $this->getUser();
+        if (!$user instanceof User) {
+            return new JsonResponse(['error' => 'Non authentifié'], Response::HTTP_UNAUTHORIZED);
+        }
+
+        // Récupérer toutes les données de l'utilisateur
+        $mouvements = $this->entityManager->getRepository(\App\Entity\Mouvement::class)->findBy(['user' => $user]);
+        $comptes = $this->entityManager->getRepository(\App\Entity\Compte::class)->findBy(['user' => $user]);
+        $projets = $this->entityManager->getRepository(\App\Entity\Projet::class)->findBy(['user' => $user]);
+        $categories = $this->entityManager->getRepository(\App\Entity\Categorie::class)->findBy(['user' => $user]);
+        $contacts = $this->entityManager->getRepository(\App\Entity\Contact::class)->findBy(['user' => $user]);
+
+        $exportData = [
+            'utilisateur' => [
+                'id' => $user->getId(),
+                'email' => $user->getEmail(),
+                'nom' => $user->getNom(),
+                'prenoms' => $user->getPrenoms(),
+                'dateCreation' => $user->getDateCreation()->format('Y-m-d H:i:s'),
+                'devise' => [
+                    'code' => $user->getDevise()->getCode(),
+                    'nom' => $user->getDevise()->getNom()
+                ]
+            ],
+            'mouvements' => array_map(function($mouvement) use ($user) {
+                return [
+                    'id' => $mouvement->getId(),
+                    'type' => $mouvement->getType(),
+                    'montantTotal' => $mouvement->getMontantTotal(),
+                    'montantEffectif' => $mouvement->getMontantEffectif(),
+                    'statut' => $mouvement->getStatut(),
+                    'date' => $mouvement->getDate()->format('Y-m-d H:i:s'),
+                    'description' => $mouvement->getDescription(),
+                    'categorie' => $mouvement->getCategorie()->getNom(),
+                    'projet' => $mouvement->getProjet()?->getNom(),
+                    'contact' => $mouvement->getContact()?->getNom()
+                ];
+            }, $mouvements),
+            'comptes' => array_map(function($compte) {
+                return [
+                    'id' => $compte->getId(),
+                    'nom' => $compte->getNom(),
+                    'type' => $compte->getType(),
+                    'soldeActuel' => $compte->getSoldeActuel(),
+                    'soldeInitial' => $compte->getSoldeInitial(),
+                    'dateCreation' => $compte->getDateCreation()->format('Y-m-d H:i:s')
+                ];
+            }, $comptes),
+            'projets' => array_map(function($projet) {
+                return [
+                    'id' => $projet->getId(),
+                    'nom' => $projet->getNom(),
+                    'description' => $projet->getDescription(),
+                    'budgetPrevu' => $projet->getBudgetPrevu(),
+                    'dateCreation' => $projet->getDateCreation()->format('Y-m-d H:i:s')
+                ];
+            }, $projets),
+            'categories' => array_map(function($categorie) {
+                return [
+                    'id' => $categorie->getId(),
+                    'nom' => $categorie->getNom(),
+                    'type' => $categorie->getType(),
+                    'dateCreation' => $categorie->getDateCreation()->format('Y-m-d H:i:s')
+                ];
+            }, $categories),
+            'contacts' => array_map(function($contact) {
+                return [
+                    'id' => $contact->getId(),
+                    'nom' => $contact->getNom(),
+                    'telephone' => $contact->getTelephone(),
+                    'email' => $contact->getEmail(),
+                    'source' => $contact->getSource(),
+                    'dateCreation' => $contact->getDateCreation()->format('Y-m-d H:i:s')
+                ];
+            }, $contacts),
+            'export' => [
+                'date' => (new \DateTime())->format('Y-m-d H:i:s'),
+                'totalMouvements' => count($mouvements),
+                'totalComptes' => count($comptes),
+                'totalProjets' => count($projets),
+                'totalCategories' => count($categories),
+                'totalContacts' => count($contacts)
+            ]
+        ];
+
+        return new JsonResponse([
+            'message' => 'Données exportées avec succès',
+            'data' => $exportData
         ]);
     }
 }

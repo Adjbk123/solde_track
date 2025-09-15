@@ -5,6 +5,8 @@ namespace App\Controller;
 use App\Entity\Mouvement;
 use App\Entity\Dette;
 use App\Entity\User;
+use App\Entity\Compte;
+use App\Entity\Transfert;
 use App\Service\UserDeviseService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -79,7 +81,7 @@ class DashboardController extends AbstractController
     public function getProjetsSoldes(): JsonResponse
     {
         $user = $this->getUser();
-        if (!$user) {
+        if (!$user instanceof User) {
             return new JsonResponse(['error' => 'Non authentifié'], Response::HTTP_UNAUTHORIZED);
         }
 
@@ -130,7 +132,7 @@ class DashboardController extends AbstractController
     public function getHistorique(Request $request): JsonResponse
     {
         $user = $this->getUser();
-        if (!$user) {
+        if (!$user instanceof User) {
             return new JsonResponse(['error' => 'Non authentifié'], Response::HTTP_UNAUTHORIZED);
         }
 
@@ -181,7 +183,7 @@ class DashboardController extends AbstractController
     public function getDettesEnRetard(): JsonResponse
     {
         $user = $this->getUser();
-        if (!$user) {
+        if (!$user instanceof User) {
             return new JsonResponse(['error' => 'Non authentifié'], Response::HTTP_UNAUTHORIZED);
         }
 
@@ -205,6 +207,249 @@ class DashboardController extends AbstractController
         return new JsonResponse([
             'dettes' => $dettes,
             'total' => count($dettes)
+        ]);
+    }
+
+    #[Route('/comptes/soldes', name: 'comptes_soldes', methods: ['GET'])]
+    public function getComptesSoldes(): JsonResponse
+    {
+        $user = $this->getUser();
+        if (!$user instanceof User) {
+            return new JsonResponse(['error' => 'Non authentifié'], Response::HTTP_UNAUTHORIZED);
+        }
+
+        $comptes = $user->getComptes();
+        $comptesSoldes = [];
+        $soldeTotal = 0;
+
+        foreach ($comptes as $compte) {
+            $soldeActuel = (float) $compte->getSoldeActuel();
+            $soldeTotal += $soldeActuel;
+
+            $comptesSoldes[] = [
+                'id' => $compte->getId(),
+                'nom' => $compte->getNom(),
+                'type' => $compte->getType(),
+                'typeLabel' => $compte->getTypeLabel(),
+                'soldeActuel' => $compte->getSoldeActuel(),
+                'soldeActuelFormatted' => $this->userDeviseService->formatAmount($user, $soldeActuel),
+                'soldeInitial' => $compte->getSoldeInitial(),
+                'soldeInitialFormatted' => $this->userDeviseService->formatAmount($user, (float) $compte->getSoldeInitial()),
+                'devise' => [
+                    'id' => $compte->getDevise()->getId(),
+                    'code' => $compte->getDevise()->getCode(),
+                    'nom' => $compte->getDevise()->getNom()
+                ],
+                'dateCreation' => $compte->getDateCreation()->format('Y-m-d H:i:s'),
+                'dateModification' => $compte->getDateModification()->format('Y-m-d H:i:s')
+            ];
+        }
+
+        return new JsonResponse([
+            'comptes' => $comptesSoldes,
+            'soldeTotal' => number_format($soldeTotal, 2, '.', ''),
+            'soldeTotalFormatted' => $this->userDeviseService->formatAmount($user, $soldeTotal),
+            'nombreComptes' => count($comptes)
+        ]);
+    }
+
+    #[Route('/transferts/recents', name: 'transferts_recents', methods: ['GET'])]
+    public function getTransfertsRecents(Request $request): JsonResponse
+    {
+        $user = $this->getUser();
+        if (!$user instanceof User) {
+            return new JsonResponse(['error' => 'Non authentifié'], Response::HTTP_UNAUTHORIZED);
+        }
+
+        $limit = (int) $request->query->get('limit', 5);
+
+        $transferts = $this->entityManager->getRepository(Transfert::class)
+            ->findBy(['user' => $user], ['date' => 'DESC'], $limit);
+
+        $transfertsData = [];
+        foreach ($transferts as $transfert) {
+            $transfertsData[] = [
+                'id' => $transfert->getId(),
+                'montant' => $transfert->getMontant(),
+                'montantFormatted' => $this->userDeviseService->formatAmount($user, (float) $transfert->getMontant()),
+                'date' => $transfert->getDate()->format('Y-m-d H:i:s'),
+                'note' => $transfert->getNote(),
+                'annule' => $transfert->isAnnule(),
+                'compteSource' => [
+                    'id' => $transfert->getCompteSource()->getId(),
+                    'nom' => $transfert->getCompteSource()->getNom()
+                ],
+                'compteDestination' => [
+                    'id' => $transfert->getCompteDestination()->getId(),
+                    'nom' => $transfert->getCompteDestination()->getNom()
+                ],
+                'devise' => [
+                    'id' => $transfert->getDevise()->getId(),
+                    'code' => $transfert->getDevise()->getCode(),
+                    'nom' => $transfert->getDevise()->getNom()
+                ]
+            ];
+        }
+
+        return new JsonResponse([
+            'transferts' => $transfertsData,
+            'total' => count($transfertsData)
+        ]);
+    }
+
+    #[Route('/resume', name: 'resume', methods: ['GET'])]
+    public function getResume(): JsonResponse
+    {
+        $user = $this->getUser();
+        if (!$user instanceof User) {
+            return new JsonResponse(['error' => 'Non authentifié'], Response::HTTP_UNAUTHORIZED);
+        }
+
+        $mouvementRepo = $this->entityManager->getRepository(Mouvement::class);
+        $compteRepo = $this->entityManager->getRepository(Compte::class);
+        $transfertRepo = $this->entityManager->getRepository(Transfert::class);
+
+        // Solde total des mouvements
+        $soldeTotal = $mouvementRepo->getSoldeTotal($user);
+
+        // Solde total des comptes
+        $comptes = $user->getComptes();
+        $soldeComptes = 0;
+        foreach ($comptes as $compte) {
+            $soldeComptes += (float) $compte->getSoldeActuel();
+        }
+
+        // Dettes en retard
+        $dettesEnRetard = $this->entityManager->getRepository(Dette::class)->findEnRetard($user);
+        $totalDettesEnRetard = 0;
+        foreach ($dettesEnRetard as $dette) {
+            $totalDettesEnRetard += (float) $dette->getMontantRest();
+        }
+
+        // Transferts récents
+        $transfertsRecents = $transfertRepo->findBy(['user' => $user], ['date' => 'DESC'], 3);
+
+        // Mouvements récents
+        $mouvementsRecents = $mouvementRepo->findBy(['user' => $user], ['date' => 'DESC'], 5);
+
+        // Statistiques par type
+        $stats = [];
+        foreach (Mouvement::TYPES as $type => $label) {
+            $mouvements = $mouvementRepo->findByUserAndType($user, $type);
+            $total = 0;
+            $count = count($mouvements);
+            
+            foreach ($mouvements as $mouvement) {
+                $total += (float) $mouvement->getMontantEffectif();
+            }
+            
+            $stats[$type] = [
+                'label' => $label,
+                'count' => $count,
+                'total' => number_format($total, 2, '.', ''),
+                'totalFormatted' => $this->userDeviseService->formatAmount($user, $total)
+            ];
+        }
+
+        return new JsonResponse([
+            'soldeTotal' => number_format($soldeTotal, 2, '.', ''),
+            'soldeTotalFormatted' => $this->userDeviseService->formatAmount($user, $soldeTotal),
+            'soldeComptes' => number_format($soldeComptes, 2, '.', ''),
+            'soldeComptesFormatted' => $this->userDeviseService->formatAmount($user, $soldeComptes),
+            'dettesEnRetard' => [
+                'count' => count($dettesEnRetard),
+                'total' => number_format($totalDettesEnRetard, 2, '.', ''),
+                'totalFormatted' => $this->userDeviseService->formatAmount($user, $totalDettesEnRetard)
+            ],
+            'statistiques' => $stats,
+            'transfertsRecents' => array_map(function($transfert) use ($user) {
+                return [
+                    'id' => $transfert->getId(),
+                    'montant' => $transfert->getMontant(),
+                    'montantFormatted' => $this->userDeviseService->formatAmount($user, (float) $transfert->getMontant()),
+                    'date' => $transfert->getDate()->format('Y-m-d H:i:s'),
+                    'compteSource' => $transfert->getCompteSource()->getNom(),
+                    'compteDestination' => $transfert->getCompteDestination()->getNom()
+                ];
+            }, $transfertsRecents),
+            'mouvementsRecents' => array_map(function($mouvement) use ($user) {
+                return [
+                    'id' => $mouvement->getId(),
+                    'type' => $mouvement->getType(),
+                    'typeLabel' => $mouvement->getTypeLabel(),
+                    'montant' => $mouvement->getMontantEffectif(),
+                    'montantFormatted' => $this->userDeviseService->formatAmount($user, (float) $mouvement->getMontantEffectif()),
+                    'date' => $mouvement->getDate()->format('Y-m-d H:i:s'),
+                    'description' => $mouvement->getDescription(),
+                    'categorie' => $mouvement->getCategorie()->getNom()
+                ];
+            }, $mouvementsRecents),
+            'devise' => [
+                'code' => $this->userDeviseService->getUserDeviseCode($user),
+                'nom' => $this->userDeviseService->getUserDeviseName($user)
+            ]
+        ]);
+    }
+
+    #[Route('/statistiques/periodes', name: 'statistiques_periodes', methods: ['GET'])]
+    public function getStatistiquesPeriodes(Request $request): JsonResponse
+    {
+        $user = $this->getUser();
+        if (!$user instanceof User) {
+            return new JsonResponse(['error' => 'Non authentifié'], Response::HTTP_UNAUTHORIZED);
+        }
+
+        $debut = $request->query->get('debut');
+        $fin = $request->query->get('fin');
+
+        if (!$debut || !$fin) {
+            return new JsonResponse(['error' => 'Dates de début et fin requises'], Response::HTTP_BAD_REQUEST);
+        }
+
+        $qb = $this->entityManager->getRepository(Mouvement::class)
+            ->createQueryBuilder('m')
+            ->where('m.user = :user')
+            ->andWhere('m.date >= :debut')
+            ->andWhere('m.date <= :fin')
+            ->setParameter('user', $user)
+            ->setParameter('debut', new \DateTime($debut))
+            ->setParameter('fin', new \DateTime($fin));
+
+        $mouvements = $qb->getQuery()->getResult();
+
+        $stats = [
+            'depense' => ['count' => 0, 'total' => 0],
+            'entree' => ['count' => 0, 'total' => 0],
+            'dette' => ['count' => 0, 'total' => 0],
+            'don' => ['count' => 0, 'total' => 0]
+        ];
+
+        foreach ($mouvements as $mouvement) {
+            $type = $mouvement->getType();
+            $montant = (float) $mouvement->getMontantEffectif();
+            
+            if (isset($stats[$type])) {
+                $stats[$type]['count']++;
+                $stats[$type]['total'] += $montant;
+            }
+        }
+
+        // Formater les totaux
+        foreach ($stats as $type => &$stat) {
+            $stat['totalFormatted'] = $this->userDeviseService->formatAmount($user, $stat['total']);
+        }
+
+        $soldeNet = $stats['entree']['total'] + $stats['dette']['total'] - $stats['depense']['total'] - $stats['don']['total'];
+
+        return new JsonResponse([
+            'periode' => [
+                'debut' => $debut,
+                'fin' => $fin
+            ],
+            'statistiques' => $stats,
+            'soldeNet' => number_format($soldeNet, 2, '.', ''),
+            'soldeNetFormatted' => $this->userDeviseService->formatAmount($user, $soldeNet),
+            'totalMouvements' => count($mouvements)
         ]);
     }
 }

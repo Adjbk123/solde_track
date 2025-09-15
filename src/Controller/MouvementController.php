@@ -10,6 +10,9 @@ use App\Entity\Don;
 use App\Entity\Categorie;
 use App\Entity\Projet;
 use App\Entity\Contact;
+use App\Entity\User;
+use App\Entity\Compte;
+use App\Service\UserDeviseService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -23,14 +26,15 @@ class MouvementController extends AbstractController
 {
     public function __construct(
         private EntityManagerInterface $entityManager,
-        private ValidatorInterface $validator
+        private ValidatorInterface $validator,
+        private UserDeviseService $userDeviseService
     ) {}
 
     #[Route('', name: 'list', methods: ['GET'])]
     public function list(Request $request): JsonResponse
     {
         $user = $this->getUser();
-        if (!$user) {
+        if (!$user instanceof User) {
             return new JsonResponse(['error' => 'Non authentifié'], Response::HTTP_UNAUTHORIZED);
         }
 
@@ -359,6 +363,343 @@ class MouvementController extends AbstractController
             $data['montantRest'] = $mouvement->getMontantRest();
             $data['montantInterets'] = $mouvement->getMontantInterets();
             $data['enRetard'] = $mouvement->isEnRetard();
+        } elseif ($mouvement instanceof Don) {
+            $data['occasion'] = $mouvement->getOccasion();
+        }
+
+        return $data;
+    }
+
+    #[Route('/dettes', name: 'create_dette', methods: ['POST'])]
+    public function createDette(Request $request): JsonResponse
+    {
+        $user = $this->getUser();
+        if (!$user instanceof User) {
+            return new JsonResponse(['error' => 'Non authentifié'], Response::HTTP_UNAUTHORIZED);
+        }
+
+        $data = json_decode($request->getContent(), true);
+
+        if (!isset($data['montantTotal']) || !isset($data['categorie_id'])) {
+            return new JsonResponse([
+                'error' => 'Données manquantes',
+                'message' => 'Montant total et catégorie sont requis'
+            ], Response::HTTP_BAD_REQUEST);
+        }
+
+        $categorie = $this->entityManager->getRepository(Categorie::class)->find($data['categorie_id']);
+        if (!$categorie || $categorie->getUser() !== $user) {
+            return new JsonResponse(['error' => 'Catégorie non trouvée'], Response::HTTP_NOT_FOUND);
+        }
+
+        $dette = new Dette();
+        $dette->setUser($user);
+        $dette->setMontantTotal($data['montantTotal']);
+        $dette->setCategorie($categorie);
+        $dette->setDescription($data['description'] ?? null);
+        $dette->setEcheance(isset($data['echeance']) ? new \DateTime($data['echeance']) : null);
+        $dette->setTaux($data['taux'] ?? null);
+        $dette->setMontantRest($data['montantTotal']); // Initialement, le montant restant = montant total
+
+        if (isset($data['projet_id'])) {
+            $projet = $this->entityManager->getRepository(Projet::class)->find($data['projet_id']);
+            if ($projet && $projet->getUser() === $user) {
+                $dette->setProjet($projet);
+            }
+        }
+
+        if (isset($data['contact_id'])) {
+            $contact = $this->entityManager->getRepository(Contact::class)->find($data['contact_id']);
+            if ($contact && $contact->getUser() === $user) {
+                $dette->setContact($contact);
+            }
+        }
+
+        if (isset($data['date'])) {
+            $dette->setDate(new \DateTime($data['date']));
+        }
+
+        $errors = $this->validator->validate($dette);
+        if (count($errors) > 0) {
+            $errorMessages = [];
+            foreach ($errors as $error) {
+                $errorMessages[] = $error->getMessage();
+            }
+            return new JsonResponse([
+                'error' => 'Données invalides',
+                'messages' => $errorMessages
+            ], Response::HTTP_BAD_REQUEST);
+        }
+
+        $this->entityManager->persist($dette);
+        $this->entityManager->flush();
+
+        return new JsonResponse([
+            'message' => 'Dette créée avec succès',
+            'mouvement' => $this->serializeMouvement($dette, $user)
+        ], Response::HTTP_CREATED);
+    }
+
+    #[Route('/dons', name: 'create_don', methods: ['POST'])]
+    public function createDon(Request $request): JsonResponse
+    {
+        $user = $this->getUser();
+        if (!$user instanceof User) {
+            return new JsonResponse(['error' => 'Non authentifié'], Response::HTTP_UNAUTHORIZED);
+        }
+
+        $data = json_decode($request->getContent(), true);
+
+        if (!isset($data['montantTotal']) || !isset($data['categorie_id'])) {
+            return new JsonResponse([
+                'error' => 'Données manquantes',
+                'message' => 'Montant total et catégorie sont requis'
+            ], Response::HTTP_BAD_REQUEST);
+        }
+
+        $categorie = $this->entityManager->getRepository(Categorie::class)->find($data['categorie_id']);
+        if (!$categorie || $categorie->getUser() !== $user) {
+            return new JsonResponse(['error' => 'Catégorie non trouvée'], Response::HTTP_NOT_FOUND);
+        }
+
+        $don = new Don();
+        $don->setUser($user);
+        $don->setMontantTotal($data['montantTotal']);
+        $don->setCategorie($categorie);
+        $don->setDescription($data['description'] ?? null);
+        $don->setOccasion($data['occasion'] ?? null);
+
+        if (isset($data['projet_id'])) {
+            $projet = $this->entityManager->getRepository(Projet::class)->find($data['projet_id']);
+            if ($projet && $projet->getUser() === $user) {
+                $don->setProjet($projet);
+            }
+        }
+
+        if (isset($data['contact_id'])) {
+            $contact = $this->entityManager->getRepository(Contact::class)->find($data['contact_id']);
+            if ($contact && $contact->getUser() === $user) {
+                $don->setContact($contact);
+            }
+        }
+
+        if (isset($data['date'])) {
+            $don->setDate(new \DateTime($data['date']));
+        }
+
+        $errors = $this->validator->validate($don);
+        if (count($errors) > 0) {
+            $errorMessages = [];
+            foreach ($errors as $error) {
+                $errorMessages[] = $error->getMessage();
+            }
+            return new JsonResponse([
+                'error' => 'Données invalides',
+                'messages' => $errorMessages
+            ], Response::HTTP_BAD_REQUEST);
+        }
+
+        $this->entityManager->persist($don);
+        $this->entityManager->flush();
+
+        return new JsonResponse([
+            'message' => 'Don créé avec succès',
+            'mouvement' => $this->serializeMouvement($don, $user)
+        ], Response::HTTP_CREATED);
+    }
+
+    #[Route('/statistiques', name: 'statistiques', methods: ['GET'])]
+    public function getStatistiques(Request $request): JsonResponse
+    {
+        $user = $this->getUser();
+        if (!$user instanceof User) {
+            return new JsonResponse(['error' => 'Non authentifié'], Response::HTTP_UNAUTHORIZED);
+        }
+
+        $debut = $request->query->get('debut');
+        $fin = $request->query->get('fin');
+        $type = $request->query->get('type');
+
+        $qb = $this->entityManager->getRepository(Mouvement::class)
+            ->createQueryBuilder('m')
+            ->where('m.user = :user')
+            ->setParameter('user', $user);
+
+        if ($debut) {
+            $qb->andWhere('m.date >= :debut')->setParameter('debut', new \DateTime($debut));
+        }
+        if ($fin) {
+            $qb->andWhere('m.date <= :fin')->setParameter('fin', new \DateTime($fin));
+        }
+        if ($type) {
+            $qb->andWhere('m.type = :type')->setParameter('type', $type);
+        }
+
+        $mouvements = $qb->getQuery()->getResult();
+
+        $totalDepenses = 0;
+        $totalEntrees = 0;
+        $totalDettes = 0;
+        $totalDons = 0;
+        $mouvementsParType = [];
+        $mouvementsParCategorie = [];
+
+        foreach ($mouvements as $mouvement) {
+            $montant = (float) $mouvement->getMontantEffectif();
+            $typeMouvement = $mouvement->getType();
+            $categorieNom = $mouvement->getCategorie()->getNom();
+
+            switch ($typeMouvement) {
+                case 'depense':
+                    $totalDepenses += $montant;
+                    break;
+                case 'entree':
+                    $totalEntrees += $montant;
+                    break;
+                case 'dette':
+                    $totalDettes += $montant;
+                    break;
+                case 'don':
+                    $totalDons += $montant;
+                    break;
+            }
+
+            // Statistiques par type
+            if (!isset($mouvementsParType[$typeMouvement])) {
+                $mouvementsParType[$typeMouvement] = ['count' => 0, 'total' => 0];
+            }
+            $mouvementsParType[$typeMouvement]['count']++;
+            $mouvementsParType[$typeMouvement]['total'] += $montant;
+
+            // Statistiques par catégorie
+            if (!isset($mouvementsParCategorie[$categorieNom])) {
+                $mouvementsParCategorie[$categorieNom] = ['count' => 0, 'total' => 0];
+            }
+            $mouvementsParCategorie[$categorieNom]['count']++;
+            $mouvementsParCategorie[$categorieNom]['total'] += $montant;
+        }
+
+        return new JsonResponse([
+            'statistiques' => [
+                'totalDepenses' => $totalDepenses,
+                'totalDepensesFormatted' => $this->userDeviseService->formatAmount($user, $totalDepenses),
+                'totalEntrees' => $totalEntrees,
+                'totalEntreesFormatted' => $this->userDeviseService->formatAmount($user, $totalEntrees),
+                'totalDettes' => $totalDettes,
+                'totalDettesFormatted' => $this->userDeviseService->formatAmount($user, $totalDettes),
+                'totalDons' => $totalDons,
+                'totalDonsFormatted' => $this->userDeviseService->formatAmount($user, $totalDons),
+                'soldeNet' => $totalEntrees - $totalDepenses,
+                'soldeNetFormatted' => $this->userDeviseService->formatAmount($user, $totalEntrees - $totalDepenses),
+                'nombreTotal' => count($mouvements)
+            ],
+            'parType' => $mouvementsParType,
+            'parCategorie' => $mouvementsParCategorie
+        ]);
+    }
+
+    #[Route('/recents', name: 'recents', methods: ['GET'])]
+    public function getRecents(Request $request): JsonResponse
+    {
+        $user = $this->getUser();
+        if (!$user instanceof User) {
+            return new JsonResponse(['error' => 'Non authentifié'], Response::HTTP_UNAUTHORIZED);
+        }
+
+        $limit = (int) $request->query->get('limit', 10);
+        $type = $request->query->get('type');
+
+        $qb = $this->entityManager->getRepository(Mouvement::class)
+            ->createQueryBuilder('m')
+            ->where('m.user = :user')
+            ->setParameter('user', $user)
+            ->orderBy('m.date', 'DESC')
+            ->setMaxResults($limit);
+
+        if ($type) {
+            $qb->andWhere('m.type = :type')->setParameter('type', $type);
+        }
+
+        $mouvements = $qb->getQuery()->getResult();
+
+        $data = [];
+        foreach ($mouvements as $mouvement) {
+            $data[] = $this->serializeMouvement($mouvement, $user);
+        }
+
+        return new JsonResponse(['mouvements' => $data]);
+    }
+
+    private function serializeMouvement(Mouvement $mouvement, User $user = null): array
+    {
+        $data = [
+            'id' => $mouvement->getId(),
+            'type' => $mouvement->getType(),
+            'typeLabel' => $mouvement->getTypeLabel(),
+            'montantTotal' => $mouvement->getMontantTotal(),
+            'montantEffectif' => $mouvement->getMontantEffectif(),
+            'montantRestant' => $mouvement->getMontantRestant(),
+            'statut' => $mouvement->getStatut(),
+            'statutLabel' => $mouvement->getStatutLabel(),
+            'date' => $mouvement->getDate()->format('Y-m-d H:i:s'),
+            'description' => $mouvement->getDescription(),
+            'categorie' => [
+                'id' => $mouvement->getCategorie()->getId(),
+                'nom' => $mouvement->getCategorie()->getNom(),
+                'type' => $mouvement->getCategorie()->getType()
+            ]
+        ];
+
+        // Ajouter le formatage des montants si l'utilisateur est fourni
+        if ($user) {
+            $data['montantTotalFormatted'] = $this->userDeviseService->formatAmount($user, (float) $mouvement->getMontantTotal());
+            $data['montantEffectifFormatted'] = $this->userDeviseService->formatAmount($user, (float) $mouvement->getMontantEffectif());
+            $data['montantRestantFormatted'] = $this->userDeviseService->formatAmount($user, (float) $mouvement->getMontantRestant());
+        }
+
+        if ($mouvement->getProjet()) {
+            $data['projet'] = [
+                'id' => $mouvement->getProjet()->getId(),
+                'nom' => $mouvement->getProjet()->getNom()
+            ];
+        }
+
+        if ($mouvement->getContact()) {
+            $data['contact'] = [
+                'id' => $mouvement->getContact()->getId(),
+                'nom' => $mouvement->getContact()->getNom(),
+                'telephone' => $mouvement->getContact()->getTelephone()
+            ];
+        }
+
+        if ($mouvement->getCompte()) {
+            $data['compte'] = [
+                'id' => $mouvement->getCompte()->getId(),
+                'nom' => $mouvement->getCompte()->getNom(),
+                'type' => $mouvement->getCompte()->getType()
+            ];
+        }
+
+        // Ajouter les données spécifiques selon le type
+        if ($mouvement instanceof Depense) {
+            $data['lieu'] = $mouvement->getLieu();
+            $data['methodePaiement'] = $mouvement->getMethodePaiement();
+            $data['methodePaiementLabel'] = $mouvement->getMethodePaiementLabel();
+            $data['recu'] = $mouvement->getRecu();
+        } elseif ($mouvement instanceof Entree) {
+            $data['source'] = $mouvement->getSource();
+            $data['methode'] = $mouvement->getMethode();
+            $data['methodeLabel'] = $mouvement->getMethodeLabel();
+        } elseif ($mouvement instanceof Dette) {
+            $data['echeance'] = $mouvement->getEcheance()?->format('Y-m-d');
+            $data['taux'] = $mouvement->getTaux();
+            $data['montantRest'] = $mouvement->getMontantRest();
+            $data['montantInterets'] = $mouvement->getMontantInterets();
+            $data['enRetard'] = $mouvement->isEnRetard();
+            if ($user) {
+                $data['montantRestFormatted'] = $this->userDeviseService->formatAmount($user, (float) $mouvement->getMontantRest());
+                $data['montantInteretsFormatted'] = $this->userDeviseService->formatAmount($user, (float) $mouvement->getMontantInterets());
+            }
         } elseif ($mouvement instanceof Don) {
             $data['occasion'] = $mouvement->getOccasion();
         }
