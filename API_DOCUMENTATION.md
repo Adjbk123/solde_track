@@ -4,7 +4,7 @@
 
 L'API utilise l'authentification JWT pour sécuriser tous les endpoints.
 
-### Inscription (JSON)
+### Inscription (JSON) - Connexion automatique
 ```http
 POST /api/auth/register
 Content-Type: application/json
@@ -16,6 +16,33 @@ Content-Type: application/json
     "prenoms": "Jean",
     "devise_id": 1,
     "dateNaissance": "1990-01-01" // optionnel
+}
+```
+
+**Réponse (201 Created) :**
+```json
+{
+    "message": "Inscription réussie et connexion automatique",
+    "token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9...",
+    "user": {
+        "id": 1,
+        "email": "user@example.com",
+        "nom": "Dupont",
+        "prenoms": "Jean",
+        "photo": null,
+        "dateNaissance": "1990-01-01",
+        "dateCreation": "2024-01-15 10:30:00",
+        "devise": {
+            "id": 1,
+            "code": "XOF",
+            "nom": "Franc CFA Ouest-Africain"
+        }
+    },
+    "setup": {
+        "categories_created": true,
+        "comptes_created": true,
+        "message": "Catégories et comptes par défaut créés automatiquement"
+    }
 }
 ```
 
@@ -78,16 +105,24 @@ Content-Type: application/json
 }
 ```
 
-**Réponse :**
+**Réponse (200 OK) :**
 ```json
 {
+    "message": "Connexion réussie",
     "token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9...",
-    "refresh_token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9...",
     "user": {
         "id": 1,
         "email": "user@example.com",
         "nom": "Dupont",
-        "prenoms": "Jean"
+        "prenoms": "Jean",
+        "photo": "http://localhost:8000/uploads/profils/1_photo-abc123.jpg",
+        "dateNaissance": "1990-01-01",
+        "dateCreation": "2024-01-15 10:30:00",
+        "devise": {
+            "id": 1,
+            "code": "XOF",
+            "nom": "Franc CFA Ouest-Africain"
+        }
     }
 }
 ```
