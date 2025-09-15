@@ -112,4 +112,69 @@ class MouvementRepository extends ServiceEntityRepository
 
         return (float) ($result ?? 0);
     }
+
+    /**
+     * Calcule le total par type de mouvement pour une période donnée
+     */
+    public function getTotalByType($user, string $type, \DateTime $debut, \DateTime $fin): float
+    {
+        $result = $this->createQueryBuilder('m')
+            ->select('SUM(m.montantEffectif)')
+            ->andWhere('m.user = :user')
+            ->andWhere('m.type = :type')
+            ->andWhere('m.date >= :debut')
+            ->andWhere('m.date <= :fin')
+            ->setParameter('user', $user)
+            ->setParameter('type', $type)
+            ->setParameter('debut', $debut)
+            ->setParameter('fin', $fin)
+            ->getQuery()
+            ->getSingleScalarResult();
+
+        return (float) ($result ?? 0);
+    }
+
+    /**
+     * Récupère les dépenses par catégorie pour une période donnée
+     */
+    public function getDepensesParCategorie($user, \DateTime $debut, \DateTime $fin): array
+    {
+        return $this->createQueryBuilder('m')
+            ->select('c.id, c.nom, SUM(m.montantEffectif) as montant')
+            ->join('m.categorie', 'c')
+            ->andWhere('m.user = :user')
+            ->andWhere('m.type = :type')
+            ->andWhere('m.date >= :debut')
+            ->andWhere('m.date <= :fin')
+            ->setParameter('user', $user)
+            ->setParameter('type', Mouvement::TYPE_DEPENSE)
+            ->setParameter('debut', $debut)
+            ->setParameter('fin', $fin)
+            ->groupBy('c.id, c.nom')
+            ->orderBy('montant', 'DESC')
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
+     * Récupère les entrées par catégorie pour une période donnée
+     */
+    public function getEntreesParCategorie($user, \DateTime $debut, \DateTime $fin): array
+    {
+        return $this->createQueryBuilder('m')
+            ->select('c.id, c.nom, SUM(m.montantEffectif) as montant')
+            ->join('m.categorie', 'c')
+            ->andWhere('m.user = :user')
+            ->andWhere('m.type = :type')
+            ->andWhere('m.date >= :debut')
+            ->andWhere('m.date <= :fin')
+            ->setParameter('user', $user)
+            ->setParameter('type', Mouvement::TYPE_ENTREE)
+            ->setParameter('debut', $debut)
+            ->setParameter('fin', $fin)
+            ->groupBy('c.id, c.nom')
+            ->orderBy('montant', 'DESC')
+            ->getQuery()
+            ->getResult();
+    }
 }

@@ -40,10 +40,9 @@ class DetteRepository extends ServiceEntityRepository
     public function findEnRetard($user): array
     {
         return $this->createQueryBuilder('d')
-            ->join('d.mouvement', 'm')
-            ->andWhere('m.user = :user')
+            ->andWhere('d.user = :user')
             ->andWhere('d.echeance < :now')
-            ->andWhere('m.statut != :paye')
+            ->andWhere('d.statut != :paye')
             ->setParameter('user', $user)
             ->setParameter('now', new \DateTime())
             ->setParameter('paye', 'paye')
