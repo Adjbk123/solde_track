@@ -1,0 +1,19 @@
+api_auth_login:
+    path: /api/auth/login
+    methods: [POST]
+    controller: App\Controller\AuthController::login
+
+api_auth_register:
+    path: /api/auth/register
+    methods: [POST]
+    controller: App\Controller\AuthController::register
+
+api_auth_me:
+    path: /api/auth/me
+    methods: [GET]
+    controller: App\Controller\AuthController::me
+
+api_auth_refresh:
+    path: /api/auth/refresh
+    methods: [POST]
+    controller: App\Controller\AuthController::refresh

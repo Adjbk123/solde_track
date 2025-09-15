@@ -1,0 +1,34 @@
+# Sécurité pour le dossier profils
+# Empêcher l'exécution de scripts
+<Files "*.php">
+    Order Deny,Allow
+    Deny from all
+</Files>
+
+# Autoriser seulement les images
+<FilesMatch "\.(jpg|jpeg|png|gif|webp)$">
+    Order Allow,Deny
+    Allow from all
+</FilesMatch>
+
+# Bloquer tous les autres types de fichiers
+<FilesMatch "^(?!.*\.(jpg|jpeg|png|gif|webp)$).*$">
+    Order Deny,Allow
+    Deny from all
+</FilesMatch>
+
+# Empêcher l'accès aux fichiers cachés
+<FilesMatch "^\.">
+    Order Deny,Allow
+    Deny from all
+</FilesMatch>
+
+# Désactiver l'affichage du contenu du répertoire
+Options -Indexes
+
+# Headers de sécurité
+<IfModule mod_headers.c>
+    Header set X-Content-Type-Options nosniff
+    Header set X-Frame-Options DENY
+    Header set X-XSS-Protection "1; mode=block"
+</IfModule>

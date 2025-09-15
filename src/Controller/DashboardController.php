@@ -1,0 +1,210 @@
+<?php
+
+namespace App\Controller;
+
+use App\Entity\Mouvement;
+use App\Entity\Dette;
+use App\Entity\User;
+use App\Service\UserDeviseService;
+use Doctrine\ORM\EntityManagerInterface;
+use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\HttpFoundation\JsonResponse;
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\Routing\Annotation\Route;
+
+#[Route('/api/dashboard', name: 'api_dashboard_')]
+class DashboardController extends AbstractController
+{
+    public function __construct(
+        private EntityManagerInterface $entityManager,
+        private UserDeviseService $userDeviseService
+    ) {}
+
+    #[Route('/solde', name: 'solde', methods: ['GET'])]
+    public function getSolde(): JsonResponse
+    {
+        $user = $this->getUser();
+        if (!$user instanceof User) {
+            return new JsonResponse(['error' => 'Non authentifié'], Response::HTTP_UNAUTHORIZED);
+        }
+
+        $mouvementRepo = $this->entityManager->getRepository(Mouvement::class);
+        
+        // Solde total
+        $soldeTotal = $mouvementRepo->getSoldeTotal($user);
+
+        // Statistiques par type
+        $stats = [];
+        foreach (Mouvement::TYPES as $type => $label) {
+            $mouvements = $mouvementRepo->findByUserAndType($user, $type);
+            $total = 0;
+            $count = count($mouvements);
+            
+            foreach ($mouvements as $mouvement) {
+                $total += (float) $mouvement->getMontantEffectif();
+            }
+            
+            $stats[$type] = [
+                'label' => $label,
+                'count' => $count,
+                'total' => number_format($total, 2, '.', '')
+            ];
+        }
+
+        // Dettes en retard
+        $dettesEnRetard = $this->entityManager->getRepository(Dette::class)->findEnRetard($user);
+        $totalDettesEnRetard = 0;
+        foreach ($dettesEnRetard as $dette) {
+            $totalDettesEnRetard += (float) $dette->getMontantRest();
+        }
+
+        return new JsonResponse([
+            'soldeTotal' => number_format($soldeTotal, 2, '.', ''),
+            'soldeTotalFormatted' => $this->userDeviseService->formatAmount($user, $soldeTotal),
+            'statistiques' => $stats,
+            'dettesEnRetard' => [
+                'count' => count($dettesEnRetard),
+                'total' => number_format($totalDettesEnRetard, 2, '.', ''),
+                'totalFormatted' => $this->userDeviseService->formatAmount($user, $totalDettesEnRetard)
+            ],
+            'devise' => [
+                'code' => $this->userDeviseService->getUserDeviseCode($user),
+                'nom' => $this->userDeviseService->getUserDeviseName($user)
+            ]
+        ]);
+    }
+
+    #[Route('/projets/soldes', name: 'projets_soldes', methods: ['GET'])]
+    public function getProjetsSoldes(): JsonResponse
+    {
+        $user = $this->getUser();
+        if (!$user) {
+            return new JsonResponse(['error' => 'Non authentifié'], Response::HTTP_UNAUTHORIZED);
+        }
+
+        $projets = $user->getProjets();
+        $mouvementRepo = $this->entityManager->getRepository(Mouvement::class);
+        
+        $projetsSoldes = [];
+        foreach ($projets as $projet) {
+            $solde = $mouvementRepo->getSoldeProjet($user, $projet);
+            $mouvements = $mouvementRepo->createQueryBuilder('m')
+                ->where('m.user = :user')
+                ->andWhere('m.projet = :projet')
+                ->setParameter('user', $user)
+                ->setParameter('projet', $projet)
+                ->getQuery()
+                ->getResult();
+
+            $totalDepenses = 0;
+            $totalEntrees = 0;
+            
+            foreach ($mouvements as $mouvement) {
+                $montant = (float) $mouvement->getMontantEffectif();
+                if (in_array($mouvement->getType(), [Mouvement::TYPE_ENTREE, Mouvement::TYPE_DETTE_A_RECEVOIR])) {
+                    $totalEntrees += $montant;
+                } else {
+                    $totalDepenses += $montant;
+                }
+            }
+
+            $projetsSoldes[] = [
+                'id' => $projet->getId(),
+                'nom' => $projet->getNom(),
+                'description' => $projet->getDescription(),
+                'budgetPrevu' => $projet->getBudgetPrevu(),
+                'solde' => number_format($solde, 2, '.', ''),
+                'totalDepenses' => number_format($totalDepenses, 2, '.', ''),
+                'totalEntrees' => number_format($totalEntrees, 2, '.', ''),
+                'nombreMouvements' => count($mouvements)
+            ];
+        }
+
+        return new JsonResponse([
+            'projets' => $projetsSoldes
+        ]);
+    }
+
+    #[Route('/historique', name: 'historique', methods: ['GET'])]
+    public function getHistorique(Request $request): JsonResponse
+    {
+        $user = $this->getUser();
+        if (!$user) {
+            return new JsonResponse(['error' => 'Non authentifié'], Response::HTTP_UNAUTHORIZED);
+        }
+
+        $debut = $request->query->get('debut');
+        $fin = $request->query->get('fin');
+        $type = $request->query->get('type');
+
+        $qb = $this->entityManager->getRepository(Mouvement::class)
+            ->createQueryBuilder('m')
+            ->where('m.user = :user')
+            ->setParameter('user', $user)
+            ->orderBy('m.date', 'DESC');
+
+        if ($debut) {
+            $qb->andWhere('m.date >= :debut')->setParameter('debut', new \DateTime($debut));
+        }
+        if ($fin) {
+            $qb->andWhere('m.date <= :fin')->setParameter('fin', new \DateTime($fin));
+        }
+        if ($type) {
+            $qb->andWhere('m.type = :type')->setParameter('type', $type);
+        }
+
+        $mouvements = $qb->getQuery()->getResult();
+
+        $historique = [];
+        foreach ($mouvements as $mouvement) {
+            $historique[] = [
+                'id' => $mouvement->getId(),
+                'type' => $mouvement->getType(),
+                'typeLabel' => $mouvement->getTypeLabel(),
+                'montant' => $mouvement->getMontantEffectif(),
+                'date' => $mouvement->getDate()->format('Y-m-d H:i:s'),
+                'description' => $mouvement->getDescription(),
+                'categorie' => $mouvement->getCategorie()->getNom(),
+                'projet' => $mouvement->getProjet()?->getNom(),
+                'contact' => $mouvement->getContact()?->getNom()
+            ];
+        }
+
+        return new JsonResponse([
+            'historique' => $historique,
+            'total' => count($historique)
+        ]);
+    }
+
+    #[Route('/dettes/retard', name: 'dettes_retard', methods: ['GET'])]
+    public function getDettesEnRetard(): JsonResponse
+    {
+        $user = $this->getUser();
+        if (!$user) {
+            return new JsonResponse(['error' => 'Non authentifié'], Response::HTTP_UNAUTHORIZED);
+        }
+
+        $dettesEnRetard = $this->entityManager->getRepository(Dette::class)->findEnRetard($user);
+        
+        $dettes = [];
+        foreach ($dettesEnRetard as $dette) {
+            $dettes[] = [
+                'id' => $dette->getId(),
+                'montantTotal' => $dette->getMontantTotal(),
+                'montantRest' => $dette->getMontantRest(),
+                'echeance' => $dette->getEcheance()->format('Y-m-d'),
+                'taux' => $dette->getTaux(),
+                'montantInterets' => $dette->getMontantInterets(),
+                'description' => $dette->getDescription(),
+                'contact' => $dette->getContact()?->getNom(),
+                'joursRetard' => $dette->getEcheance()->diff(new \DateTime())->days
+            ];
+        }
+
+        return new JsonResponse([
+            'dettes' => $dettes,
+            'total' => count($dettes)
+        ]);
+    }
+}
