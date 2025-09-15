@@ -71,7 +71,7 @@ class MouvementController extends AbstractController
 
         $data = [];
         foreach ($mouvements as $mouvement) {
-            $data[] = $this->serializeMouvement($mouvement);
+            $data[] = $this->serializeMouvement($mouvement, $user);
         }
 
         return new JsonResponse([
@@ -154,7 +154,7 @@ class MouvementController extends AbstractController
 
         return new JsonResponse([
             'message' => 'Dépense créée avec succès',
-            'mouvement' => $this->serializeMouvement($depense)
+            'mouvement' => $this->serializeMouvement($depense, $user)
         ], Response::HTTP_CREATED);
     }
 
@@ -223,7 +223,7 @@ class MouvementController extends AbstractController
 
         return new JsonResponse([
             'message' => 'Entrée créée avec succès',
-            'mouvement' => $this->serializeMouvement($entree)
+            'mouvement' => $this->serializeMouvement($entree, $user)
         ], Response::HTTP_CREATED);
     }
 
@@ -241,7 +241,7 @@ class MouvementController extends AbstractController
         }
 
         return new JsonResponse([
-            'mouvement' => $this->serializeMouvement($mouvement)
+            'mouvement' => $this->serializeMouvement($mouvement, $user)
         ]);
     }
 
@@ -287,7 +287,7 @@ class MouvementController extends AbstractController
 
         return new JsonResponse([
             'message' => 'Mouvement mis à jour avec succès',
-            'mouvement' => $this->serializeMouvement($mouvement)
+            'mouvement' => $this->serializeMouvement($mouvement, $user)
         ]);
     }
 
@@ -312,63 +312,6 @@ class MouvementController extends AbstractController
         ]);
     }
 
-    private function serializeMouvement(Mouvement $mouvement): array
-    {
-        $data = [
-            'id' => $mouvement->getId(),
-            'type' => $mouvement->getType(),
-            'typeLabel' => $mouvement->getTypeLabel(),
-            'montantTotal' => $mouvement->getMontantTotal(),
-            'montantEffectif' => $mouvement->getMontantEffectif(),
-            'montantRestant' => $mouvement->getMontantRestant(),
-            'statut' => $mouvement->getStatut(),
-            'statutLabel' => $mouvement->getStatutLabel(),
-            'date' => $mouvement->getDate()->format('Y-m-d H:i:s'),
-            'description' => $mouvement->getDescription(),
-            'categorie' => [
-                'id' => $mouvement->getCategorie()->getId(),
-                'nom' => $mouvement->getCategorie()->getNom(),
-                'type' => $mouvement->getCategorie()->getType()
-            ]
-        ];
-
-        if ($mouvement->getProjet()) {
-            $data['projet'] = [
-                'id' => $mouvement->getProjet()->getId(),
-                'nom' => $mouvement->getProjet()->getNom()
-            ];
-        }
-
-        if ($mouvement->getContact()) {
-            $data['contact'] = [
-                'id' => $mouvement->getContact()->getId(),
-                'nom' => $mouvement->getContact()->getNom(),
-                'telephone' => $mouvement->getContact()->getTelephone()
-            ];
-        }
-
-        // Ajouter les données spécifiques selon le type
-        if ($mouvement instanceof Depense) {
-            $data['lieu'] = $mouvement->getLieu();
-            $data['methodePaiement'] = $mouvement->getMethodePaiement();
-            $data['methodePaiementLabel'] = $mouvement->getMethodePaiementLabel();
-            $data['recu'] = $mouvement->getRecu();
-        } elseif ($mouvement instanceof Entree) {
-            $data['source'] = $mouvement->getSource();
-            $data['methode'] = $mouvement->getMethode();
-            $data['methodeLabel'] = $mouvement->getMethodeLabel();
-        } elseif ($mouvement instanceof Dette) {
-            $data['echeance'] = $mouvement->getEcheance()?->format('Y-m-d');
-            $data['taux'] = $mouvement->getTaux();
-            $data['montantRest'] = $mouvement->getMontantRest();
-            $data['montantInterets'] = $mouvement->getMontantInterets();
-            $data['enRetard'] = $mouvement->isEnRetard();
-        } elseif ($mouvement instanceof Don) {
-            $data['occasion'] = $mouvement->getOccasion();
-        }
-
-        return $data;
-    }
 
     #[Route('/dettes', name: 'create_dette', methods: ['POST'])]
     public function createDette(Request $request): JsonResponse
