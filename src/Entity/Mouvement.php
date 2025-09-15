@@ -84,6 +84,10 @@ abstract class Mouvement
     #[ORM\JoinColumn(nullable: true)]
     private ?Contact $contact = null;
 
+    #[ORM\ManyToOne(targetEntity: Compte::class, inversedBy: 'mouvements')]
+    #[ORM\JoinColumn(nullable: false)]
+    private ?Compte $compte = null;
+
     #[ORM\OneToMany(mappedBy: 'mouvement', targetEntity: Paiement::class, orphanRemoval: true)]
     private Collection $paiements;
 
@@ -234,6 +238,18 @@ abstract class Mouvement
     public function setContact(?Contact $contact): static
     {
         $this->contact = $contact;
+
+        return $this;
+    }
+
+    public function getCompte(): ?Compte
+    {
+        return $this->compte;
+    }
+
+    public function setCompte(?Compte $compte): static
+    {
+        $this->compte = $compte;
 
         return $this;
     }

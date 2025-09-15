@@ -5,6 +5,7 @@ namespace App\Controller;
 use App\Entity\User;
 use App\Service\DefaultCategoriesService;
 use App\Service\DefaultDevisesService;
+use App\Service\DefaultComptesService;
 use App\Service\UserDeviseService;
 use App\Service\PhotoUploadService;
 use Doctrine\ORM\EntityManagerInterface;
@@ -25,6 +26,7 @@ class AuthController extends AbstractController
         private ValidatorInterface $validator,
         private DefaultCategoriesService $defaultCategoriesService,
         private DefaultDevisesService $defaultDevisesService,
+        private DefaultComptesService $defaultComptesService,
         private UserDeviseService $userDeviseService,
         private PhotoUploadService $photoUploadService
     ) {}
@@ -95,6 +97,9 @@ class AuthController extends AbstractController
 
         // Créer les catégories par défaut pour le nouvel utilisateur
         $this->defaultCategoriesService->createDefaultCategoriesForUser($user);
+
+        // Créer les comptes par défaut pour le nouvel utilisateur
+        $this->defaultComptesService->createDefaultComptesForUser($user);
 
         return new JsonResponse([
             'message' => 'Utilisateur créé avec succès',
@@ -306,6 +311,9 @@ class AuthController extends AbstractController
 
         // Créer les catégories par défaut pour le nouvel utilisateur
         $this->defaultCategoriesService->createDefaultCategoriesForUser($user);
+
+        // Créer les comptes par défaut pour le nouvel utilisateur
+        $this->defaultComptesService->createDefaultComptesForUser($user);
 
         return new JsonResponse([
             'message' => 'Utilisateur créé avec succès',

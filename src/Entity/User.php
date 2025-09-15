@@ -62,6 +62,12 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\OneToMany(mappedBy: 'user', targetEntity: Contact::class, orphanRemoval: true)]
     private Collection $contacts;
 
+    #[ORM\OneToMany(mappedBy: 'user', targetEntity: Compte::class, orphanRemoval: true)]
+    private Collection $comptes;
+
+    #[ORM\OneToMany(mappedBy: 'user', targetEntity: Transfert::class, orphanRemoval: true)]
+    private Collection $transferts;
+
     #[ORM\ManyToOne(targetEntity: Devise::class, inversedBy: 'users')]
     #[ORM\JoinColumn(nullable: true)]
     private ?Devise $devise = null;
@@ -72,6 +78,8 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         $this->projets = new ArrayCollection();
         $this->categories = new ArrayCollection();
         $this->contacts = new ArrayCollection();
+        $this->comptes = new ArrayCollection();
+        $this->transferts = new ArrayCollection();
         $this->dateCreation = new \DateTime();
     }
 
@@ -323,6 +331,66 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     public function setDateCreation(\DateTimeInterface $dateCreation): static
     {
         $this->dateCreation = $dateCreation;
+
+        return $this;
+    }
+
+    /**
+     * @return Collection<int, Compte>
+     */
+    public function getComptes(): Collection
+    {
+        return $this->comptes;
+    }
+
+    public function addCompte(Compte $compte): static
+    {
+        if (!$this->comptes->contains($compte)) {
+            $this->comptes->add($compte);
+            $compte->setUser($this);
+        }
+
+        return $this;
+    }
+
+    public function removeCompte(Compte $compte): static
+    {
+        if ($this->comptes->removeElement($compte)) {
+            // set the owning side to null (unless already changed)
+            if ($compte->getUser() === $this) {
+                $compte->setUser(null);
+            }
+        }
+
+        return $this;
+    }
+
+    /**
+     * @return Collection<int, Transfert>
+     */
+    public function getTransferts(): Collection
+    {
+        return $this->transferts;
+    }
+
+    public function addTransfert(Transfert $transfert): static
+    {
+        if (!$this->transferts->contains($transfert)) {
+            $this->transferts->add($transfert);
+            $transfert->setUser($this);
+        }
+
+        return $this;
+    }
+
+    public function removeTransfert(Transfert $transfert): static
+    {
+        if ($this->transferts->removeElement($transfert)) {
+            // set the owning side to null (unless already changed)
+            if ($transfert->getUser() === $this) {
+                $transfert->setUser(null);
+            }
+        }
 
         return $this;
     }

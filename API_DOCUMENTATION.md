@@ -268,7 +268,143 @@ GET /api/devises/{code}
 Authorization: Bearer {token}
 ```
 
-### 3. Gestion des Mouvements
+### 3. Gestion des Comptes
+
+#### Lister les comptes
+```http
+GET /api/comptes
+Authorization: Bearer {token}
+```
+
+#### Créer un compte
+```http
+POST /api/comptes
+Authorization: Bearer {token}
+Content-Type: application/json
+
+{
+    "nom": "Compte Épargne",
+    "description": "Compte pour mes économies",
+    "type": "epargne",
+    "solde_initial": "10000.00",
+    "numero": "1234567890",
+    "institution": "UBA"
+}
+```
+
+#### Voir un compte
+```http
+GET /api/comptes/{id}
+Authorization: Bearer {token}
+```
+
+#### Modifier un compte
+```http
+PUT /api/comptes/{id}
+Authorization: Bearer {token}
+Content-Type: application/json
+
+{
+    "nom": "Nouveau nom",
+    "description": "Nouvelle description"
+}
+```
+
+#### Supprimer un compte
+```http
+DELETE /api/comptes/{id}
+Authorization: Bearer {token}
+```
+
+#### Désactiver/Réactiver un compte
+```http
+POST /api/comptes/{id}/desactiver
+POST /api/comptes/{id}/reactiver
+Authorization: Bearer {token}
+```
+
+#### Types de comptes disponibles
+```http
+GET /api/comptes/types
+Authorization: Bearer {token}
+```
+
+**Types disponibles :**
+- `compte_principal` : Compte Principal
+- `epargne` : Épargne
+- `momo` : Mobile Money
+- `carte` : Carte Bancaire
+- `especes` : Espèces
+- `banque` : Compte Bancaire
+- `crypto` : Cryptomonnaie
+- `autre` : Autre
+
+#### Statistiques des comptes
+```http
+GET /api/comptes/statistiques
+Authorization: Bearer {token}
+```
+
+### 4. Gestion des Transferts
+
+#### Lister les transferts
+```http
+GET /api/transferts?page=1&limit=20&compte_id=1
+Authorization: Bearer {token}
+```
+
+#### Créer un transfert
+```http
+POST /api/transferts
+Authorization: Bearer {token}
+Content-Type: application/json
+
+{
+    "compte_source_id": 1,
+    "compte_destination_id": 2,
+    "montant": "5000.00",
+    "note": "Transfert vers épargne"
+}
+```
+
+#### Voir un transfert
+```http
+GET /api/transferts/{id}
+Authorization: Bearer {token}
+```
+
+#### Annuler un transfert
+```http
+POST /api/transferts/{id}/annuler
+Authorization: Bearer {token}
+```
+
+#### Simuler un transfert
+```http
+POST /api/transferts/simuler
+Authorization: Bearer {token}
+Content-Type: application/json
+
+{
+    "compte_source_id": 1,
+    "compte_destination_id": 2,
+    "montant": "5000.00"
+}
+```
+
+#### Transferts récents
+```http
+GET /api/transferts/recents?limit=10
+Authorization: Bearer {token}
+```
+
+#### Statistiques des transferts
+```http
+GET /api/transferts/statistiques
+Authorization: Bearer {token}
+```
+
+### 5. Gestion des Mouvements
 
 #### Lister les mouvements
 ```http
