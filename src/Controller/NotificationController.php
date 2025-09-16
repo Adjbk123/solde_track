@@ -165,15 +165,29 @@ class NotificationController extends AbstractController
             return new JsonResponse(['error' => 'Utilisateur non trouvé'], Response::HTTP_UNAUTHORIZED);
         }
 
-        $success = $this->notificationService->sendMotivationNotification($user);
+        try {
+            $success = $this->notificationService->sendMotivationNotification($user);
 
-        if ($success) {
+            if ($success) {
+                return new JsonResponse([
+                    'message' => 'Notification de motivation envoyée avec succès'
+                ]);
+            } else {
+                // Vérifier si c'est à cause du token FCM manquant
+                if (!$user->getFcmToken()) {
+                    return new JsonResponse([
+                        'message' => 'Token FCM non enregistré. Veuillez enregistrer votre token FCM d\'abord.',
+                        'requires_fcm_token' => true
+                    ], Response::HTTP_BAD_REQUEST);
+                } else {
+                    return new JsonResponse([
+                        'error' => 'Échec de l\'envoi de la notification de motivation'
+                    ], Response::HTTP_INTERNAL_SERVER_ERROR);
+                }
+            }
+        } catch (\Exception $e) {
             return new JsonResponse([
-                'message' => 'Notification de motivation envoyée avec succès'
-            ]);
-        } else {
-            return new JsonResponse([
-                'error' => 'Échec de l\'envoi de la notification de motivation'
+                'error' => 'Erreur lors de l\'envoi de la notification: ' . $e->getMessage()
             ], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
     }
