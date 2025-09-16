@@ -157,6 +157,81 @@ class TransfertController extends AbstractController
         }
     }
 
+    
+    #[Route('/simuler', name: 'simuler', methods: ['POST'])]
+    public function simuler(Request $request): JsonResponse
+    {
+        $user = $this->getUser();
+        if (!$user instanceof User) {
+            return new JsonResponse(['error' => 'Non authentifié'], Response::HTTP_UNAUTHORIZED);
+        }
+
+        $data = json_decode($request->getContent(), true);
+
+        if (!isset($data['compte_source_id']) || !isset($data['compte_destination_id']) || !isset($data['montant'])) {
+            return new JsonResponse([
+                'error' => 'Données manquantes',
+                'message' => 'compte_source_id, compte_destination_id et montant sont requis'
+            ], Response::HTTP_BAD_REQUEST);
+        }
+
+        $compteSource = $this->entityManager->getRepository(Compte::class)->find($data['compte_source_id']);
+        $compteDestination = $this->entityManager->getRepository(Compte::class)->find($data['compte_destination_id']);
+
+        if (!$compteSource || $compteSource->getUser() !== $user) {
+            return new JsonResponse(['error' => 'Compte source non trouvé'], Response::HTTP_NOT_FOUND);
+        }
+
+        if (!$compteDestination || $compteDestination->getUser() !== $user) {
+            return new JsonResponse(['error' => 'Compte destination non trouvé'], Response::HTTP_NOT_FOUND);
+        }
+
+        $simulation = $this->transfertService->simulerTransfert($compteSource, $compteDestination, $data['montant']);
+
+        return new JsonResponse($simulation);
+    }
+
+    #[Route('/statistiques', name: 'statistiques', methods: ['GET'])]
+    public function getStatistiques(): JsonResponse
+    {
+        $user = $this->getUser();
+        if (!$user instanceof User) {
+            return new JsonResponse(['error' => 'Non authentifié'], Response::HTTP_UNAUTHORIZED);
+        }
+
+        $statistiques = $this->transfertService->getStatistiquesTransferts($user);
+
+        return new JsonResponse($statistiques);
+    }
+
+    #[Route('/recents', name: 'recents', methods: ['GET'])]
+    public function getRecents(Request $request): JsonResponse
+    {
+        $user = $this->getUser();
+        if (!$user instanceof User) {
+            return new JsonResponse(['error' => 'Non authentifié'], Response::HTTP_UNAUTHORIZED);
+        }
+
+        $limit = (int) $request->query->get('limit', 10);
+        $transferts = $this->transfertService->getTransfertsRecents($user, $limit);
+
+        $data = [];
+        foreach ($transferts as $transfert) {
+            $data[] = [
+                'id' => $transfert->getId(),
+                'montant' => $transfert->getMontant(),
+                'montantFormatted' => $this->userDeviseService->formatAmount($user, (float) $transfert->getMontant()),
+                'compteSource' => $transfert->getCompteSource()->getNom(),
+                'compteDestination' => $transfert->getCompteDestination()->getNom(),
+                'date' => $transfert->getDate()->format('Y-m-d H:i:s'),
+                'description' => $transfert->getDescription()
+            ];
+        }
+
+        return new JsonResponse(['transferts' => $data]);
+    }
+
+    
     #[Route('/{id}', name: 'show', methods: ['GET'])]
     public function show(string $id): JsonResponse
     {
@@ -245,76 +320,4 @@ class TransfertController extends AbstractController
         }
     }
 
-    #[Route('/simuler', name: 'simuler', methods: ['POST'])]
-    public function simuler(Request $request): JsonResponse
-    {
-        $user = $this->getUser();
-        if (!$user instanceof User) {
-            return new JsonResponse(['error' => 'Non authentifié'], Response::HTTP_UNAUTHORIZED);
-        }
-
-        $data = json_decode($request->getContent(), true);
-
-        if (!isset($data['compte_source_id']) || !isset($data['compte_destination_id']) || !isset($data['montant'])) {
-            return new JsonResponse([
-                'error' => 'Données manquantes',
-                'message' => 'compte_source_id, compte_destination_id et montant sont requis'
-            ], Response::HTTP_BAD_REQUEST);
-        }
-
-        $compteSource = $this->entityManager->getRepository(Compte::class)->find($data['compte_source_id']);
-        $compteDestination = $this->entityManager->getRepository(Compte::class)->find($data['compte_destination_id']);
-
-        if (!$compteSource || $compteSource->getUser() !== $user) {
-            return new JsonResponse(['error' => 'Compte source non trouvé'], Response::HTTP_NOT_FOUND);
-        }
-
-        if (!$compteDestination || $compteDestination->getUser() !== $user) {
-            return new JsonResponse(['error' => 'Compte destination non trouvé'], Response::HTTP_NOT_FOUND);
-        }
-
-        $simulation = $this->transfertService->simulerTransfert($compteSource, $compteDestination, $data['montant']);
-
-        return new JsonResponse($simulation);
-    }
-
-    #[Route('/statistiques', name: 'statistiques', methods: ['GET'])]
-    public function getStatistiques(): JsonResponse
-    {
-        $user = $this->getUser();
-        if (!$user instanceof User) {
-            return new JsonResponse(['error' => 'Non authentifié'], Response::HTTP_UNAUTHORIZED);
-        }
-
-        $statistiques = $this->transfertService->getStatistiquesTransferts($user);
-
-        return new JsonResponse($statistiques);
-    }
-
-    #[Route('/recents', name: 'recents', methods: ['GET'])]
-    public function getRecents(Request $request): JsonResponse
-    {
-        $user = $this->getUser();
-        if (!$user instanceof User) {
-            return new JsonResponse(['error' => 'Non authentifié'], Response::HTTP_UNAUTHORIZED);
-        }
-
-        $limit = (int) $request->query->get('limit', 10);
-        $transferts = $this->transfertService->getTransfertsRecents($user, $limit);
-
-        $data = [];
-        foreach ($transferts as $transfert) {
-            $data[] = [
-                'id' => $transfert->getId(),
-                'montant' => $transfert->getMontant(),
-                'montantFormatted' => $this->userDeviseService->formatAmount($user, (float) $transfert->getMontant()),
-                'compteSource' => $transfert->getCompteSource()->getNom(),
-                'compteDestination' => $transfert->getCompteDestination()->getNom(),
-                'date' => $transfert->getDate()->format('Y-m-d H:i:s'),
-                'description' => $transfert->getDescription()
-            ];
-        }
-
-        return new JsonResponse(['transferts' => $data]);
-    }
 }

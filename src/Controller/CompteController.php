@@ -119,6 +119,39 @@ class CompteController extends AbstractController
         ], Response::HTTP_CREATED);
     }
 
+    #[Route('/types', name: 'types', methods: ['GET'])]
+    public function getTypes(): JsonResponse
+    {
+        return new JsonResponse(['types' => Compte::getTypes()]);
+    }
+
+    #[Route('/statistiques', name: 'statistiques', methods: ['GET'])]
+    public function getStatistiques(): JsonResponse
+    {
+        $user = $this->getUser();
+        if (!$user instanceof User) {
+            return new JsonResponse(['error' => 'Non authentifié'], Response::HTTP_UNAUTHORIZED);
+        }
+
+        $compteRepo = $this->entityManager->getRepository(Compte::class);
+        
+        $statistiques = $compteRepo->getStatistiquesParType($user);
+        $soldeTotal = $compteRepo->getSoldeTotalByUser($user);
+        $comptesNegatifs = $compteRepo->findComptesAvecSoldeNegatif($user);
+
+        return new JsonResponse([
+            'statistiques' => $statistiques,
+            'soldeTotal' => $soldeTotal,
+            'soldeTotalFormatted' => $this->userDeviseService->formatAmount($user, $soldeTotal),
+            'comptesNegatifs' => count($comptesNegatifs),
+            'devise' => [
+                'code' => $this->userDeviseService->getUserDeviseCode($user),
+                'nom' => $this->userDeviseService->getUserDeviseName($user)
+            ]
+        ]);
+    }
+
+    
     #[Route('/{id}', name: 'show', methods: ['GET'])]
     public function show(string $id): JsonResponse
     {
@@ -287,35 +320,5 @@ class CompteController extends AbstractController
         return new JsonResponse(['message' => 'Compte réactivé avec succès']);
     }
 
-    #[Route('/types', name: 'types', methods: ['GET'])]
-    public function getTypes(): JsonResponse
-    {
-        return new JsonResponse(['types' => Compte::getTypes()]);
-    }
-
-    #[Route('/statistiques', name: 'statistiques', methods: ['GET'])]
-    public function getStatistiques(): JsonResponse
-    {
-        $user = $this->getUser();
-        if (!$user instanceof User) {
-            return new JsonResponse(['error' => 'Non authentifié'], Response::HTTP_UNAUTHORIZED);
-        }
-
-        $compteRepo = $this->entityManager->getRepository(Compte::class);
-        
-        $statistiques = $compteRepo->getStatistiquesParType($user);
-        $soldeTotal = $compteRepo->getSoldeTotalByUser($user);
-        $comptesNegatifs = $compteRepo->findComptesAvecSoldeNegatif($user);
-
-        return new JsonResponse([
-            'statistiques' => $statistiques,
-            'soldeTotal' => $soldeTotal,
-            'soldeTotalFormatted' => $this->userDeviseService->formatAmount($user, $soldeTotal),
-            'comptesNegatifs' => count($comptesNegatifs),
-            'devise' => [
-                'code' => $this->userDeviseService->getUserDeviseCode($user),
-                'nom' => $this->userDeviseService->getUserDeviseName($user)
-            ]
-        ]);
-    }
+  
 }
