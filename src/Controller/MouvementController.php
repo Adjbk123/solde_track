@@ -14,6 +14,7 @@ use App\Entity\User;
 use App\Entity\Compte;
 use App\Service\UserDeviseService;
 use App\Service\NotificationService;
+use App\Service\PushNotificationService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -29,7 +30,8 @@ class MouvementController extends AbstractController
         private EntityManagerInterface $entityManager,
         private ValidatorInterface $validator,
         private UserDeviseService $userDeviseService,
-        private NotificationService $notificationService
+        private NotificationService $notificationService,
+        private PushNotificationService $pushNotificationService
     ) {}
 
     #[Route('', name: 'list', methods: ['GET'])]
@@ -255,7 +257,15 @@ class MouvementController extends AbstractController
 
         // Envoyer une notification d'alerte de revenu
         try {
-            $this->sendIncomeNotification($user, $entree);
+            if ($user->getFcmToken()) {
+                $currency = $user->getDevise() ? $user->getDevise()->getCode() : 'XOF';
+                $this->pushNotificationService->sendIncomeNotification(
+                    $user->getFcmToken(),
+                    $user->getNom() ?? $user->getEmail(),
+                    (float) $entree->getMontantTotal(),
+                    $currency
+                );
+            }
         } catch (\Exception $e) {
             // Log l'erreur mais ne pas faire échouer la création
             error_log('Erreur notification revenu: ' . $e->getMessage());
@@ -784,22 +794,4 @@ class MouvementController extends AbstractController
         }
     }
 
-    /**
-     * Envoie une notification d'alerte de revenu
-     */
-    private function sendIncomeNotification(User $user, Entree $entree): void
-    {
-        try {
-            $data = [
-                'amount' => $entree->getMontantTotal(),
-                'source' => $entree->getCategorie() ? $entree->getCategorie()->getNom() : 'une source',
-                'currency' => $user->getDevise() ? $user->getDevise()->getCode() : 'XOF'
-            ];
-            
-            $this->notificationService->sendNotification($user, 'INCOME_ALERT', $data);
-        } catch (\Exception $e) {
-            // Log l'erreur mais ne pas faire échouer la création du mouvement
-            error_log('Erreur lors de l\'envoi de notification de revenu: ' . $e->getMessage());
-        }
-    }
 }

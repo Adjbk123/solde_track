@@ -4,6 +4,7 @@ namespace App\Controller;
 
 use App\Entity\User;
 use App\Service\NotificationService;
+use App\Service\PushNotificationService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -18,7 +19,8 @@ class NotificationController extends AbstractController
 {
     public function __construct(
         private EntityManagerInterface $entityManager,
-        private NotificationService $notificationService
+        private NotificationService $notificationService,
+        private PushNotificationService $pushNotificationService
     ) {}
 
     /**
@@ -100,22 +102,22 @@ class NotificationController extends AbstractController
         }
 
         try {
-            // Test avec un message simple
-            $testMessage = [
-                'title' => '🧪 Test SoldeTrack',
-                'body' => 'Notification de test envoyée avec succès !',
-                'data' => [
+            // Test avec le nouveau service Firebase
+            $success = $this->pushNotificationService->sendNotification(
+                $fcmToken, 
+                '🧪 Test SoldeTrack', 
+                'Notification de test envoyée avec succès !',
+                [
                     'type' => 'TEST',
                     'timestamp' => time()
                 ]
-            ];
-
-            $success = $this->notificationService->sendTestNotification($fcmToken, $testMessage);
+            );
 
             if ($success) {
                 return new JsonResponse([
-                    'message' => 'Notification de test envoyée avec succès',
-                    'fcm_token' => substr($fcmToken, 0, 20) . '...'
+                    'message' => 'Notification de test envoyée avec succès (Firebase)',
+                    'fcm_token' => substr($fcmToken, 0, 20) . '...',
+                    'service' => 'kreait/firebase-php'
                 ]);
             } else {
                 return new JsonResponse([
@@ -178,6 +180,9 @@ class NotificationController extends AbstractController
             return new JsonResponse(['error' => 'Utilisateur non trouvé'], Response::HTTP_UNAUTHORIZED);
         }
 
+        // Test de connexion Firebase
+        $firebaseTest = $this->pushNotificationService->testConnection();
+        
         $diagnostic = [
             'user_id' => $user->getId(),
             'user_email' => $user->getEmail(),
@@ -185,6 +190,7 @@ class NotificationController extends AbstractController
             'fcm_token_length' => $user->getFcmToken() ? strlen($user->getFcmToken()) : 0,
             'fcm_token_preview' => $user->getFcmToken() ? substr($user->getFcmToken(), 0, 20) . '...' : null,
             'user_currency' => $user->getDevise() ? $user->getDevise()->getCode() : 'XOF',
+            'firebase_connection' => $firebaseTest,
             'configuration' => [
                 'fcm_project_id' => $this->notificationService->getProjectId(),
                 'fcm_url' => $this->notificationService->getFcmUrl(),
