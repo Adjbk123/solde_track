@@ -143,24 +143,31 @@ class NotificationController extends AbstractController
         }
 
         try {
-            $success = $this->notificationService->sendMotivationNotification($user);
+            // Vérifier si le token FCM est disponible
+            if (!$user->getFcmToken()) {
+                return new JsonResponse([
+                    'message' => 'Token FCM non enregistré. Veuillez enregistrer votre token FCM d\'abord.',
+                    'requires_fcm_token' => true
+                ], Response::HTTP_BAD_REQUEST);
+            }
+
+            // Utiliser le nouveau service Firebase
+            $currency = $user->getDevise() ? $user->getDevise()->getCode() : 'XOF';
+            $success = $this->pushNotificationService->sendMotivationNotification(
+                $user->getFcmToken(),
+                $user->getNom() ?? $user->getEmail(),
+                $currency
+            );
 
             if ($success) {
                 return new JsonResponse([
-                    'message' => 'Notification de motivation envoyée avec succès'
+                    'message' => 'Notification de motivation envoyée avec succès',
+                    'service' => 'kreait/firebase-php'
                 ]);
             } else {
-                // Vérifier si c'est à cause du token FCM manquant
-                if (!$user->getFcmToken()) {
-                    return new JsonResponse([
-                        'message' => 'Token FCM non enregistré. Veuillez enregistrer votre token FCM d\'abord.',
-                        'requires_fcm_token' => true
-                    ], Response::HTTP_BAD_REQUEST);
-                } else {
-                    return new JsonResponse([
-                        'error' => 'Échec de l\'envoi de la notification de motivation'
-                    ], Response::HTTP_INTERNAL_SERVER_ERROR);
-                }
+                return new JsonResponse([
+                    'error' => 'Échec de l\'envoi de la notification de motivation'
+                ], Response::HTTP_INTERNAL_SERVER_ERROR);
             }
         } catch (\Exception $e) {
             return new JsonResponse([
