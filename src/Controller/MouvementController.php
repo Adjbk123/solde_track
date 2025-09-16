@@ -157,6 +157,10 @@ class MouvementController extends AbstractController
         }
 
         $this->entityManager->persist($depense);
+        
+        // Mettre à jour le solde du compte AVANT le flush
+        $this->updateCompteSolde($depense);
+        
         $this->entityManager->flush();
 
         return new JsonResponse([
@@ -233,6 +237,10 @@ class MouvementController extends AbstractController
         }
 
         $this->entityManager->persist($entree);
+        
+        // Mettre à jour le solde du compte AVANT le flush
+        $this->updateCompteSolde($entree);
+        
         $this->entityManager->flush();
 
         return new JsonResponse([
@@ -511,6 +519,10 @@ class MouvementController extends AbstractController
         }
 
         $this->entityManager->persist($dette);
+        
+        // Mettre à jour le solde du compte AVANT le flush
+        $this->updateCompteSolde($dette);
+        
         $this->entityManager->flush();
 
         return new JsonResponse([
@@ -586,6 +598,10 @@ class MouvementController extends AbstractController
         }
 
         $this->entityManager->persist($don);
+        
+        // Mettre à jour le solde du compte AVANT le flush
+        $this->updateCompteSolde($don);
+        
         $this->entityManager->flush();
 
         return new JsonResponse([
@@ -681,5 +697,44 @@ class MouvementController extends AbstractController
         }
 
         return $data;
+    }
+
+    /**
+     * Met à jour le solde du compte associé au mouvement
+     */
+    private function updateCompteSolde(Mouvement $mouvement): void
+    {
+        if (!$mouvement->getCompte()) {
+            return; // Pas de compte associé
+        }
+
+        $compte = $mouvement->getCompte();
+        $montant = (float) $mouvement->getMontantTotal();
+        $soldeActuel = (float) $compte->getSoldeActuel();
+
+        // Calculer le nouveau solde selon le type de mouvement
+        switch ($mouvement->getType()) {
+            case 'entree':
+            case 'dette_a_recevoir':
+                // Les entrées et dettes à recevoir augmentent le solde
+                $nouveauSolde = $soldeActuel + $montant;
+                $mouvement->setMontantEffectif($mouvement->getMontantTotal());
+                break;
+            
+            case 'depense':
+            case 'dette_a_payer':
+            case 'don':
+                // Les dépenses, dettes à payer et dons diminuent le solde
+                $nouveauSolde = $soldeActuel - $montant;
+                $mouvement->setMontantEffectif($mouvement->getMontantTotal());
+                break;
+            
+            default:
+                return; // Type non reconnu
+        }
+
+        // Mettre à jour le solde du compte
+        $compte->setSoldeActuel(number_format($nouveauSolde, 2, '.', ''));
+        $compte->setDateModification(new \DateTime());
     }
 }
