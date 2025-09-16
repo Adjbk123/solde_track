@@ -621,7 +621,7 @@ class MouvementController extends AbstractController
                 'id' => $mouvement->getCategorie()->getId(),
                 'nom' => $mouvement->getCategorie()->getNom(),
                 'type' => $mouvement->getCategorie()->getType(),
-                'couleur' => $mouvement->getCategorie()->getCouleur(),
+                'typeLabel' => $mouvement->getCategorie()->getTypeLabel(),
             ];
         }
 
