@@ -117,14 +117,15 @@ class ContactController extends AbstractController
     }
 
     #[Route('/{id}', name: 'update', methods: ['PUT'])]
-    public function update(int $id, Request $request): JsonResponse
+    public function update(string $id, Request $request): JsonResponse
     {
         $user = $this->getUser();
         if (!$user) {
             return new JsonResponse(['error' => 'Non authentifié'], Response::HTTP_UNAUTHORIZED);
         }
 
-        $contact = $this->entityManager->getRepository(Contact::class)->find($id);
+        $contactId = (int) $id;
+        $contact = $this->entityManager->getRepository(Contact::class)->find($contactId);
         if (!$contact || $contact->getUser() !== $user) {
             return new JsonResponse(['error' => 'Contact non trouvé'], Response::HTTP_NOT_FOUND);
         }
@@ -173,14 +174,15 @@ class ContactController extends AbstractController
     }
 
     #[Route('/{id}', name: 'delete', methods: ['DELETE'])]
-    public function delete(int $id): JsonResponse
+    public function delete(string $id): JsonResponse
     {
         $user = $this->getUser();
         if (!$user) {
             return new JsonResponse(['error' => 'Non authentifié'], Response::HTTP_UNAUTHORIZED);
         }
 
-        $contact = $this->entityManager->getRepository(Contact::class)->find($id);
+        $contactId = (int) $id;
+        $contact = $this->entityManager->getRepository(Contact::class)->find($contactId);
         if (!$contact || $contact->getUser() !== $user) {
             return new JsonResponse(['error' => 'Contact non trouvé'], Response::HTTP_NOT_FOUND);
         }

@@ -102,14 +102,15 @@ class CategorieController extends AbstractController
     }
 
     #[Route('/{id}', name: 'update', methods: ['PUT'])]
-    public function update(int $id, Request $request): JsonResponse
+    public function update(string $id, Request $request): JsonResponse
     {
         $user = $this->getUser();
         if (!$user) {
             return new JsonResponse(['error' => 'Non authentifié'], Response::HTTP_UNAUTHORIZED);
         }
 
-        $categorie = $this->entityManager->getRepository(Categorie::class)->find($id);
+        $categorieId = (int) $id;
+        $categorie = $this->entityManager->getRepository(Categorie::class)->find($categorieId);
         if (!$categorie || $categorie->getUser() !== $user) {
             return new JsonResponse(['error' => 'Catégorie non trouvée'], Response::HTTP_NOT_FOUND);
         }
@@ -150,14 +151,15 @@ class CategorieController extends AbstractController
     }
 
     #[Route('/{id}', name: 'delete', methods: ['DELETE'])]
-    public function delete(int $id): JsonResponse
+    public function delete(string $id): JsonResponse
     {
         $user = $this->getUser();
         if (!$user) {
             return new JsonResponse(['error' => 'Non authentifié'], Response::HTTP_UNAUTHORIZED);
         }
 
-        $categorie = $this->entityManager->getRepository(Categorie::class)->find($id);
+        $categorieId = (int) $id;
+        $categorie = $this->entityManager->getRepository(Categorie::class)->find($categorieId);
         if (!$categorie || $categorie->getUser() !== $user) {
             return new JsonResponse(['error' => 'Catégorie non trouvée'], Response::HTTP_NOT_FOUND);
         }

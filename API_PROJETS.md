@@ -258,150 +258,6 @@ Authorization: Bearer {token}
 }
 ```
 
-## 📱 Utilisation avec Flutter
-
-### Exemple de service Flutter :
-
-```dart
-class ProjetService {
-  static const String baseUrl = 'http://localhost:8000/api';
-  
-  static Future<List<Projet>> getProjets({
-    int page = 1,
-    int limit = 20,
-    String? search,
-  }) async {
-    final queryParams = <String, String>{
-      'page': page.toString(),
-      'limit': limit.toString(),
-    };
-    
-    if (search != null && search.isNotEmpty) {
-      queryParams['search'] = search;
-    }
-    
-    final uri = Uri.parse('$baseUrl/projets').replace(
-      queryParameters: queryParams,
-    );
-    
-    final response = await http.get(
-      uri,
-      headers: await _getAuthHeaders(),
-    );
-    
-    if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
-      return (data['projets'] as List)
-          .map((json) => Projet.fromJson(json))
-          .toList();
-    } else {
-      throw Exception('Erreur lors de la récupération des projets');
-    }
-  }
-  
-  static Future<Projet> createProjet({
-    required String nom,
-    String? description,
-    String? budgetPrevu,
-  }) async {
-    final response = await http.post(
-      Uri.parse('$baseUrl/projets'),
-      headers: await _getAuthHeaders(),
-      body: jsonEncode({
-        'nom': nom,
-        if (description != null) 'description': description,
-        if (budgetPrevu != null) 'budgetPrevu': budgetPrevu,
-      }),
-    );
-    
-    if (response.statusCode == 201) {
-      final data = jsonDecode(response.body);
-      return Projet.fromJson(data['projet']);
-    } else {
-      throw Exception('Erreur lors de la création du projet');
-    }
-  }
-  
-  static Future<Map<String, dynamic>> getStatistiques(int projetId) async {
-    final response = await http.get(
-      Uri.parse('$baseUrl/projets/$projetId/statistiques'),
-      headers: await _getAuthHeaders(),
-    );
-    
-    if (response.statusCode == 200) {
-      return jsonDecode(response.body);
-    } else {
-      throw Exception('Erreur lors de la récupération des statistiques');
-    }
-  }
-  
-  static Future<Map<String, dynamic>> _getAuthHeaders() async {
-    final token = await _getStoredToken();
-    return {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-      'Authorization': 'Bearer $token',
-    };
-  }
-  
-  static Future<String> _getStoredToken() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString('auth_token') ?? '';
-  }
-}
-```
-
-### Modèle Dart pour Projet :
-
-```dart
-class Projet {
-  final int id;
-  final String nom;
-  final String? description;
-  final String? budgetPrevu;
-  final String? budgetPrevuFormatted;
-  final DateTime dateCreation;
-  final int nombreMouvements;
-  final Map<String, dynamic>? statistiques;
-
-  Projet({
-    required this.id,
-    required this.nom,
-    this.description,
-    this.budgetPrevu,
-    this.budgetPrevuFormatted,
-    required this.dateCreation,
-    required this.nombreMouvements,
-    this.statistiques,
-  });
-
-  factory Projet.fromJson(Map<String, dynamic> json) {
-    return Projet(
-      id: json['id'],
-      nom: json['nom'],
-      description: json['description'],
-      budgetPrevu: json['budgetPrevu'],
-      budgetPrevuFormatted: json['budgetPrevuFormatted'],
-      dateCreation: DateTime.parse(json['dateCreation']),
-      nombreMouvements: json['nombreMouvements'],
-      statistiques: json['statistiques'],
-    );
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'nom': nom,
-      'description': description,
-      'budgetPrevu': budgetPrevu,
-      'budgetPrevuFormatted': budgetPrevuFormatted,
-      'dateCreation': dateCreation.toIso8601String(),
-      'nombreMouvements': nombreMouvements,
-      'statistiques': statistiques,
-    };
-  }
-}
-```
 
 ## ⚠️ Codes d'erreur
 
@@ -424,3 +280,207 @@ class Projet {
 5. **✅ Mouvements** : Liste des mouvements associés au projet
 6. **✅ Formatage** : Montants formatés avec la devise de l'utilisateur
 7. **✅ Sécurité** : Chaque utilisateur ne voit que ses projets
+
+## 🔄 Workflow des Projets
+
+### 1. **Création d'un Projet**
+```http
+POST /api/projets
+{
+    "nom": "Rénovation Maison",
+    "description": "Rénovation complète de la cuisine et salle de bain",
+    "budgetPrevu": "15000.00"
+}
+```
+
+### 2. **Association des Mouvements**
+Quand vous créez un mouvement, vous pouvez l'associer à un projet :
+
+```http
+POST /api/mouvements/depenses
+{
+    "montantTotal": "500.00",
+    "description": "Achat carrelage cuisine",
+    "categorie_id": 1,
+    "projet_id": 1,  // ← Association au projet
+    "lieu": "Magasin Brico",
+    "methodePaiement": "carte"
+}
+```
+
+### 3. **Suivi et Analyse**
+Le système calcule automatiquement :
+- **Total des dépenses** du projet
+- **Total des entrées** du projet  
+- **Solde actuel** (entrées - dépenses)
+- **Pourcentage du budget utilisé**
+- **Nombre de mouvements**
+
+## 📊 Cas d'Usage Pratiques
+
+### **Exemple 1 : Projet "Vacances"**
+```json
+{
+    "nom": "Vacances Été 2024",
+    "description": "Voyage en famille au Sénégal",
+    "budgetPrevu": "5000.00"
+}
+```
+- **Dépenses** : Billets d'avion, hôtel, restaurants, souvenirs
+- **Entrées** : Épargne mensuelle, aide familiale
+- **Suivi** : Pourcentage du budget utilisé, solde restant
+
+### **Exemple 2 : Projet "Business"**
+```json
+{
+    "nom": "Lancement E-commerce",
+    "description": "Création d'une boutique en ligne",
+    "budgetPrevu": "10000.00"
+}
+```
+- **Dépenses** : Développement, marketing, stock
+- **Entrées** : Ventes, investissements
+- **Suivi** : ROI, rentabilité
+
+## 🎨 Interface Suggérée pour le Frontend
+
+### **Liste des Projets**
+```
+┌─────────────────────────────────┐
+│ 📋 Mes Projets                  │
+├─────────────────────────────────┤
+│ 🏠 Rénovation Maison            │
+│ Budget: 15 000 XOF              │
+│ Utilisé: 56.7% (8 500 XOF)     │
+│ Solde: -6 500 XOF               │
+│                                 │
+│ ✈️ Vacances Été 2024           │
+│ Budget: 5 000 XOF               │
+│ Utilisé: 30% (1 500 XOF)       │
+│ Solde: 3 500 XOF                │
+└─────────────────────────────────┘
+```
+
+### **Détails d'un Projet**
+```
+┌─────────────────────────────────┐
+│ 🏠 Rénovation Maison            │
+├─────────────────────────────────┤
+│ Budget prévu: 15 000 XOF       │
+│ Dépenses: 8 500 XOF (56.7%)    │
+│ Entrées: 2 000 XOF             │
+│ Solde: -6 500 XOF              │
+│                                 │
+│ 📊 Mouvements récents           │
+│ • Achat carrelage: -500 XOF    │
+│ • Épargne mensuelle: +1000 XOF │
+│ • Peinture: -300 XOF           │
+└─────────────────────────────────┘
+```
+
+## 🔗 Intégration avec les Mouvements
+
+### **Créer un mouvement avec projet**
+```http
+POST /api/mouvements/depenses
+{
+    "montantTotal": "500.00",
+    "description": "Achat matériaux",
+    "categorie_id": 1,
+    "projet_id": 1,  // ← Lier au projet
+    "date": "2024-01-20",
+    "lieu": "Magasin Brico",
+    "methodePaiement": "carte"
+}
+```
+
+### **Créer un mouvement sans projet**
+```http
+POST /api/mouvements/depenses
+{
+    "montantTotal": "100.00",
+    "description": "Courses quotidiennes",
+    "categorie_id": 2,
+    // Pas de projet_id = mouvement général
+    "date": "2024-01-20",
+    "lieu": "Supermarché",
+    "methodePaiement": "espèces"
+}
+```
+
+## 📱 Exemples d'Utilisation Frontend
+
+### **1. Page Liste des Projets**
+```dart
+// Récupérer tous les projets
+final projets = await ProjetService.getProjets();
+
+// Rechercher des projets
+final projetsRecherche = await ProjetService.getProjets(
+  search: "maison"
+);
+```
+
+### **2. Page Détails d'un Projet**
+```dart
+// Récupérer les détails d'un projet
+final projet = await ProjetService.getProjet(projetId);
+
+// Récupérer les statistiques
+final stats = await ProjetService.getStatistiques(projetId);
+
+// Récupérer les mouvements
+final mouvements = await ProjetService.getMouvements(projetId);
+```
+
+### **3. Créer un Nouveau Projet**
+```dart
+final nouveauProjet = await ProjetService.createProjet(
+  nom: "Nouveau Projet",
+  description: "Description du projet",
+  budgetPrevu: "10000.00"
+);
+```
+
+### **4. Modifier un Projet**
+```dart
+await ProjetService.updateProjet(
+  projetId: 1,
+  nom: "Nom modifié",
+  budgetPrevu: "15000.00"
+);
+```
+
+## 🚨 Règles de Sécurité
+
+- ✅ **Isolation** : Chaque utilisateur ne voit que ses propres projets
+- ✅ **Validation** : Impossible de supprimer un projet avec des mouvements
+- ✅ **Authentification** : Tous les endpoints nécessitent un token JWT
+- ✅ **Autorisation** : Vérification que le projet appartient à l'utilisateur
+
+## 📋 Checklist Frontend
+
+### **Pages à créer :**
+- [ ] **Liste des projets** (avec recherche et pagination)
+- [ ] **Détails d'un projet** (avec statistiques)
+- [ ] **Création d'un projet** (formulaire)
+- [ ] **Modification d'un projet** (formulaire)
+- [ ] **Mouvements d'un projet** (liste avec filtres)
+
+### **Fonctionnalités à implémenter :**
+- [ ] **Recherche** dans les projets
+- [ ] **Pagination** pour les listes
+- [ ] **Calculs automatiques** des pourcentages
+- [ ] **Formatage des montants** avec devise
+- [ ] **Gestion des erreurs** (projet non trouvé, etc.)
+- [ ] **Validation** des formulaires
+- [ ] **Loading states** pendant les requêtes
+
+### **Intégrations nécessaires :**
+- [ ] **Service ProjetService** pour les appels API
+- [ ] **Modèle Projet** pour la sérialisation
+- [ ] **Gestion des tokens** d'authentification
+- [ ] **Gestion des erreurs** réseau
+- [ ] **Cache local** pour les données
+
+**L'API des projets est maintenant complètement documentée et prête pour le développement frontend !** 🚀📱

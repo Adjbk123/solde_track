@@ -120,14 +120,15 @@ class CompteController extends AbstractController
     }
 
     #[Route('/{id}', name: 'show', methods: ['GET'])]
-    public function show(int $id): JsonResponse
+    public function show(string $id): JsonResponse
     {
         $user = $this->getUser();
         if (!$user instanceof User) {
             return new JsonResponse(['error' => 'Non authentifié'], Response::HTTP_UNAUTHORIZED);
         }
 
-        $compte = $this->entityManager->getRepository(Compte::class)->find($id);
+        $compteId = (int) $id;
+        $compte = $this->entityManager->getRepository(Compte::class)->find($compteId);
         
         if (!$compte || $compte->getUser() !== $user) {
             return new JsonResponse(['error' => 'Compte non trouvé'], Response::HTTP_NOT_FOUND);
@@ -159,14 +160,15 @@ class CompteController extends AbstractController
     }
 
     #[Route('/{id}', name: 'update', methods: ['PUT'])]
-    public function update(int $id, Request $request): JsonResponse
+    public function update(string $id, Request $request): JsonResponse
     {
         $user = $this->getUser();
         if (!$user instanceof User) {
             return new JsonResponse(['error' => 'Non authentifié'], Response::HTTP_UNAUTHORIZED);
         }
 
-        $compte = $this->entityManager->getRepository(Compte::class)->find($id);
+        $compteId = (int) $id;
+        $compte = $this->entityManager->getRepository(Compte::class)->find($compteId);
         
         if (!$compte || $compte->getUser() !== $user) {
             return new JsonResponse(['error' => 'Compte non trouvé'], Response::HTTP_NOT_FOUND);
@@ -217,14 +219,15 @@ class CompteController extends AbstractController
     }
 
     #[Route('/{id}', name: 'delete', methods: ['DELETE'])]
-    public function delete(int $id): JsonResponse
+    public function delete(string $id): JsonResponse
     {
         $user = $this->getUser();
         if (!$user instanceof User) {
             return new JsonResponse(['error' => 'Non authentifié'], Response::HTTP_UNAUTHORIZED);
         }
 
-        $compte = $this->entityManager->getRepository(Compte::class)->find($id);
+        $compteId = (int) $id;
+        $compte = $this->entityManager->getRepository(Compte::class)->find($compteId);
         
         if (!$compte || $compte->getUser() !== $user) {
             return new JsonResponse(['error' => 'Compte non trouvé'], Response::HTTP_NOT_FOUND);
@@ -245,14 +248,15 @@ class CompteController extends AbstractController
     }
 
     #[Route('/{id}/desactiver', name: 'desactiver', methods: ['POST'])]
-    public function desactiver(int $id): JsonResponse
+    public function desactiver(string $id): JsonResponse
     {
         $user = $this->getUser();
         if (!$user instanceof User) {
             return new JsonResponse(['error' => 'Non authentifié'], Response::HTTP_UNAUTHORIZED);
         }
 
-        $compte = $this->entityManager->getRepository(Compte::class)->find($id);
+        $compteId = (int) $id;
+        $compte = $this->entityManager->getRepository(Compte::class)->find($compteId);
         
         if (!$compte || $compte->getUser() !== $user) {
             return new JsonResponse(['error' => 'Compte non trouvé'], Response::HTTP_NOT_FOUND);
@@ -264,14 +268,15 @@ class CompteController extends AbstractController
     }
 
     #[Route('/{id}/reactiver', name: 'reactiver', methods: ['POST'])]
-    public function reactiver(int $id): JsonResponse
+    public function reactiver(string $id): JsonResponse
     {
         $user = $this->getUser();
         if (!$user instanceof User) {
             return new JsonResponse(['error' => 'Non authentifié'], Response::HTTP_UNAUTHORIZED);
         }
 
-        $compte = $this->entityManager->getRepository(Compte::class)->find($id);
+        $compteId = (int) $id;
+        $compte = $this->entityManager->getRepository(Compte::class)->find($compteId);
         
         if (!$compte || $compte->getUser() !== $user) {
             return new JsonResponse(['error' => 'Compte non trouvé'], Response::HTTP_NOT_FOUND);

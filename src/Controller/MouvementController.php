@@ -228,14 +228,15 @@ class MouvementController extends AbstractController
     }
 
     #[Route('/{id}', name: 'show', methods: ['GET'])]
-    public function show(int $id): JsonResponse
+    public function show(string $id): JsonResponse
     {
         $user = $this->getUser();
         if (!$user) {
             return new JsonResponse(['error' => 'Non authentifié'], Response::HTTP_UNAUTHORIZED);
         }
 
-        $mouvement = $this->entityManager->getRepository(Mouvement::class)->find($id);
+        $mouvementId = (int) $id;
+        $mouvement = $this->entityManager->getRepository(Mouvement::class)->find($mouvementId);
         if (!$mouvement || $mouvement->getUser() !== $user) {
             return new JsonResponse(['error' => 'Mouvement non trouvé'], Response::HTTP_NOT_FOUND);
         }
@@ -246,14 +247,15 @@ class MouvementController extends AbstractController
     }
 
     #[Route('/{id}', name: 'update', methods: ['PUT'])]
-    public function update(int $id, Request $request): JsonResponse
+    public function update(string $id, Request $request): JsonResponse
     {
         $user = $this->getUser();
         if (!$user) {
             return new JsonResponse(['error' => 'Non authentifié'], Response::HTTP_UNAUTHORIZED);
         }
 
-        $mouvement = $this->entityManager->getRepository(Mouvement::class)->find($id);
+        $mouvementId = (int) $id;
+        $mouvement = $this->entityManager->getRepository(Mouvement::class)->find($mouvementId);
         if (!$mouvement || $mouvement->getUser() !== $user) {
             return new JsonResponse(['error' => 'Mouvement non trouvé'], Response::HTTP_NOT_FOUND);
         }
@@ -292,14 +294,15 @@ class MouvementController extends AbstractController
     }
 
     #[Route('/{id}', name: 'delete', methods: ['DELETE'])]
-    public function delete(int $id): JsonResponse
+    public function delete(string $id): JsonResponse
     {
         $user = $this->getUser();
         if (!$user) {
             return new JsonResponse(['error' => 'Non authentifié'], Response::HTTP_UNAUTHORIZED);
         }
 
-        $mouvement = $this->entityManager->getRepository(Mouvement::class)->find($id);
+        $mouvementId = (int) $id;
+        $mouvement = $this->entityManager->getRepository(Mouvement::class)->find($mouvementId);
         if (!$mouvement || $mouvement->getUser() !== $user) {
             return new JsonResponse(['error' => 'Mouvement non trouvé'], Response::HTTP_NOT_FOUND);
         }

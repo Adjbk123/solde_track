@@ -132,14 +132,15 @@ class PaiementController extends AbstractController
     }
 
     #[Route('/{id}', name: 'update', methods: ['PUT'])]
-    public function update(int $id, Request $request): JsonResponse
+    public function update(string $id, Request $request): JsonResponse
     {
         $user = $this->getUser();
         if (!$user) {
             return new JsonResponse(['error' => 'Non authentifié'], Response::HTTP_UNAUTHORIZED);
         }
 
-        $paiement = $this->entityManager->getRepository(Paiement::class)->find($id);
+        $paiementId = (int) $id;
+        $paiement = $this->entityManager->getRepository(Paiement::class)->find($paiementId);
         if (!$paiement || $paiement->getMouvement()->getUser() !== $user) {
             return new JsonResponse(['error' => 'Paiement non trouvé'], Response::HTTP_NOT_FOUND);
         }
@@ -195,14 +196,15 @@ class PaiementController extends AbstractController
     }
 
     #[Route('/{id}', name: 'delete', methods: ['DELETE'])]
-    public function delete(int $id): JsonResponse
+    public function delete(string $id): JsonResponse
     {
         $user = $this->getUser();
         if (!$user) {
             return new JsonResponse(['error' => 'Non authentifié'], Response::HTTP_UNAUTHORIZED);
         }
 
-        $paiement = $this->entityManager->getRepository(Paiement::class)->find($id);
+        $paiementId = (int) $id;
+        $paiement = $this->entityManager->getRepository(Paiement::class)->find($paiementId);
         if (!$paiement || $paiement->getMouvement()->getUser() !== $user) {
             return new JsonResponse(['error' => 'Paiement non trouvé'], Response::HTTP_NOT_FOUND);
         }
@@ -224,14 +226,15 @@ class PaiementController extends AbstractController
     }
 
     #[Route('/{id}', name: 'show', methods: ['GET'])]
-    public function show(int $id): JsonResponse
+    public function show(string $id): JsonResponse
     {
         $user = $this->getUser();
         if (!$user instanceof User) {
             return new JsonResponse(['error' => 'Non authentifié'], Response::HTTP_UNAUTHORIZED);
         }
 
-        $paiement = $this->entityManager->getRepository(Paiement::class)->find($id);
+        $paiementId = (int) $id;
+        $paiement = $this->entityManager->getRepository(Paiement::class)->find($paiementId);
         if (!$paiement || $paiement->getMouvement()->getUser() !== $user) {
             return new JsonResponse(['error' => 'Paiement non trouvé'], Response::HTTP_NOT_FOUND);
         }
@@ -342,14 +345,15 @@ class PaiementController extends AbstractController
     }
 
     #[Route('/{id}/marquer-paye', name: 'marquer_paye', methods: ['POST'])]
-    public function marquerPaye(int $id): JsonResponse
+    public function marquerPaye(string $id): JsonResponse
     {
         $user = $this->getUser();
         if (!$user instanceof User) {
             return new JsonResponse(['error' => 'Non authentifié'], Response::HTTP_UNAUTHORIZED);
         }
 
-        $paiement = $this->entityManager->getRepository(Paiement::class)->find($id);
+        $paiementId = (int) $id;
+        $paiement = $this->entityManager->getRepository(Paiement::class)->find($paiementId);
         if (!$paiement || $paiement->getMouvement()->getUser() !== $user) {
             return new JsonResponse(['error' => 'Paiement non trouvé'], Response::HTTP_NOT_FOUND);
         }
@@ -372,14 +376,15 @@ class PaiementController extends AbstractController
     }
 
     #[Route('/{id}/marquer-en-attente', name: 'marquer_en_attente', methods: ['POST'])]
-    public function marquerEnAttente(int $id): JsonResponse
+    public function marquerEnAttente(string $id): JsonResponse
     {
         $user = $this->getUser();
         if (!$user instanceof User) {
             return new JsonResponse(['error' => 'Non authentifié'], Response::HTTP_UNAUTHORIZED);
         }
 
-        $paiement = $this->entityManager->getRepository(Paiement::class)->find($id);
+        $paiementId = (int) $id;
+        $paiement = $this->entityManager->getRepository(Paiement::class)->find($paiementId);
         if (!$paiement || $paiement->getMouvement()->getUser() !== $user) {
             return new JsonResponse(['error' => 'Paiement non trouvé'], Response::HTTP_NOT_FOUND);
         }

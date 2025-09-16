@@ -158,14 +158,15 @@ class TransfertController extends AbstractController
     }
 
     #[Route('/{id}', name: 'show', methods: ['GET'])]
-    public function show(int $id): JsonResponse
+    public function show(string $id): JsonResponse
     {
         $user = $this->getUser();
         if (!$user instanceof User) {
             return new JsonResponse(['error' => 'Non authentifié'], Response::HTTP_UNAUTHORIZED);
         }
 
-        $transfert = $this->entityManager->getRepository(Transfert::class)->find($id);
+        $transfertId = (int) $id;
+        $transfert = $this->entityManager->getRepository(Transfert::class)->find($transfertId);
         
         if (!$transfert || $transfert->getUser() !== $user) {
             return new JsonResponse(['error' => 'Transfert non trouvé'], Response::HTTP_NOT_FOUND);
@@ -202,14 +203,15 @@ class TransfertController extends AbstractController
     }
 
     #[Route('/{id}/annuler', name: 'annuler', methods: ['POST'])]
-    public function annuler(int $id): JsonResponse
+    public function annuler(string $id): JsonResponse
     {
         $user = $this->getUser();
         if (!$user instanceof User) {
             return new JsonResponse(['error' => 'Non authentifié'], Response::HTTP_UNAUTHORIZED);
         }
 
-        $transfert = $this->entityManager->getRepository(Transfert::class)->find($id);
+        $transfertId = (int) $id;
+        $transfert = $this->entityManager->getRepository(Transfert::class)->find($transfertId);
         
         if (!$transfert || $transfert->getUser() !== $user) {
             return new JsonResponse(['error' => 'Transfert non trouvé'], Response::HTTP_NOT_FOUND);
