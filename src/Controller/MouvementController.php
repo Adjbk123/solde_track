@@ -241,6 +241,119 @@ class MouvementController extends AbstractController
         ], Response::HTTP_CREATED);
     }
 
+    #[Route('/statistiques', name: 'statistiques', methods: ['GET'])]
+    public function getStatistiques(Request $request): JsonResponse
+    {
+        $user = $this->getUser();
+        if (!$user instanceof User) {
+            return new JsonResponse(['error' => 'Non authentifié'], Response::HTTP_UNAUTHORIZED);
+        }
+
+        $debut = $request->query->get('debut');
+        $fin = $request->query->get('fin');
+        $type = $request->query->get('type');
+
+        $qb = $this->entityManager->getRepository(Mouvement::class)
+            ->createQueryBuilder('m')
+            ->where('m.user = :user')
+            ->setParameter('user', $user);
+
+        if ($debut) {
+            $qb->andWhere('m.date >= :debut')->setParameter('debut', new \DateTime($debut));
+        }
+        if ($fin) {
+            $qb->andWhere('m.date <= :fin')->setParameter('fin', new \DateTime($fin));
+        }
+        if ($type) {
+            $qb->andWhere('m.type = :type')->setParameter('type', $type);
+        }
+
+        $mouvements = $qb->getQuery()->getResult();
+
+        $totalDepenses = 0;
+        $totalEntrees = 0;
+        $totalDettes = 0;
+        $totalDons = 0;
+        $mouvementsParType = [];
+        $mouvementsParCategorie = [];
+
+        foreach ($mouvements as $mouvement) {
+            $montant = (float) $mouvement->getMontantEffectif();
+            $typeMouvement = $mouvement->getType();
+            $categorieNom = $mouvement->getCategorie()->getNom();
+
+            switch ($typeMouvement) {
+                case 'depense':
+                    $totalDepenses += $montant;
+                    break;
+                case 'entree':
+                    $totalEntrees += $montant;
+                    break;
+                case 'dette_a_payer':
+                case 'dette_a_recevoir':
+                    $totalDettes += $montant;
+                    break;
+                case 'don':
+                    $totalDons += $montant;
+                    break;
+            }
+
+            // Grouper par type
+            if (!isset($mouvementsParType[$typeMouvement])) {
+                $mouvementsParType[$typeMouvement] = 0;
+            }
+            $mouvementsParType[$typeMouvement] += $montant;
+
+            // Grouper par catégorie
+            if (!isset($mouvementsParCategorie[$categorieNom])) {
+                $mouvementsParCategorie[$categorieNom] = 0;
+            }
+            $mouvementsParCategorie[$categorieNom] += $montant;
+        }
+
+        return new JsonResponse([
+            'totalDepenses' => number_format($totalDepenses, 2, '.', ''),
+            'totalEntrees' => number_format($totalEntrees, 2, '.', ''),
+            'totalDettes' => number_format($totalDettes, 2, '.', ''),
+            'totalDons' => number_format($totalDons, 2, '.', ''),
+            'soldeNet' => number_format($totalEntrees - $totalDepenses, 2, '.', ''),
+            'parType' => $mouvementsParType,
+            'parCategorie' => $mouvementsParCategorie
+        ]);
+    }
+
+    #[Route('/recents', name: 'recents', methods: ['GET'])]
+    public function getRecents(Request $request): JsonResponse
+    {
+        $user = $this->getUser();
+        if (!$user instanceof User) {
+            return new JsonResponse(['error' => 'Non authentifié'], Response::HTTP_UNAUTHORIZED);
+        }
+
+        $limit = (int) $request->query->get('limit', 10);
+        $type = $request->query->get('type');
+
+        $qb = $this->entityManager->getRepository(Mouvement::class)
+            ->createQueryBuilder('m')
+            ->where('m.user = :user')
+            ->setParameter('user', $user)
+            ->orderBy('m.date', 'DESC')
+            ->setMaxResults($limit);
+
+        if ($type) {
+            $qb->andWhere('m.type = :type')->setParameter('type', $type);
+        }
+
+        $mouvements = $qb->getQuery()->getResult();
+
+        $data = [];
+        foreach ($mouvements as $mouvement) {
+            $data[] = $this->serializeMouvement($mouvement, $user);
+        }
+
+        return new JsonResponse(['mouvements' => $data]);
+    }
+
     #[Route('/{id}', name: 'show', methods: ['GET'])]
     public function show(string $id): JsonResponse
     {
