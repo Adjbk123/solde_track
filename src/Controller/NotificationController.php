@@ -50,81 +50,6 @@ class NotificationController extends AbstractController
         ]);
     }
 
-    /**
-     * Tester l'envoi d'une notification
-     */
-    #[Route('/test', name: 'test', methods: ['POST'])]
-    public function testNotification(Request $request): JsonResponse
-    {
-        $user = $this->getUser();
-        if (!$user instanceof User) {
-            return new JsonResponse(['error' => 'Utilisateur non trouvé'], Response::HTTP_UNAUTHORIZED);
-        }
-
-        $data = json_decode($request->getContent(), true);
-        $type = $data['type'] ?? 'FUN_MOTIVATION';
-        $testData = $data['data'] ?? [];
-
-        // Données de test par défaut
-        if (empty($testData)) {
-            switch ($type) {
-                case 'DEBT_REMINDER':
-                    $testData = [
-                        'amount' => 50000,
-                        'name' => 'Rodrigue',
-                        'due_date' => '2025-09-20',
-                        'days_left' => -2
-                    ];
-                    break;
-                case 'EXPENSE_REMINDER':
-                    $testData = [
-                        'amount' => 15000,
-                        'days' => 1
-                    ];
-                    break;
-                case 'INCOME_ALERT':
-                    $testData = [
-                        'amount' => 100000,
-                        'source' => 'Salaire'
-                    ];
-                    break;
-                case 'PROJECT_ALERT':
-                    $testData = [
-                        'project_name' => 'Projet Volaille',
-                        'percentage' => 15,
-                        'amount' => 25000
-                    ];
-                    break;
-                case 'FUN_MOTIVATION':
-                    $testData = [
-                        'streak' => 7,
-                        'total_saved' => 75000,
-                        'category' => 'général'
-                    ];
-                    break;
-                case 'BALANCE_ALERT':
-                    $testData = [
-                        'balance' => 5000,
-                        'account_name' => 'Compte Principal'
-                    ];
-                    break;
-            }
-        }
-
-        $success = $this->notificationService->sendNotification($user, $type, $testData);
-
-        if ($success) {
-            return new JsonResponse([
-                'message' => 'Notification de test envoyée avec succès',
-                'type' => $type,
-                'data' => $testData
-            ]);
-        } else {
-            return new JsonResponse([
-                'error' => 'Échec de l\'envoi de la notification de test'
-            ], Response::HTTP_INTERNAL_SERVER_ERROR);
-        }
-    }
 
     /**
      * Vérifier et envoyer les rappels de dettes
@@ -152,6 +77,56 @@ class NotificationController extends AbstractController
             'message' => "Vérification des projets terminée",
             'notifications_sent' => $sentCount
         ]);
+    }
+
+    /**
+     * Tester l'envoi de notification avec un token FCM
+     */
+    #[Route('/test', name: 'test', methods: ['POST'])]
+    public function testNotification(Request $request): JsonResponse
+    {
+        $user = $this->getUser();
+        if (!$user instanceof User) {
+            return new JsonResponse(['error' => 'Utilisateur non trouvé'], Response::HTTP_UNAUTHORIZED);
+        }
+
+        $data = json_decode($request->getContent(), true);
+        $fcmToken = $data['fcm_token'] ?? null;
+
+        if (!$fcmToken) {
+            return new JsonResponse([
+                'error' => 'Token FCM requis pour le test'
+            ], Response::HTTP_BAD_REQUEST);
+        }
+
+        try {
+            // Test avec un message simple
+            $testMessage = [
+                'title' => '🧪 Test SoldeTrack',
+                'body' => 'Notification de test envoyée avec succès !',
+                'data' => [
+                    'type' => 'TEST',
+                    'timestamp' => time()
+                ]
+            ];
+
+            $success = $this->notificationService->sendTestNotification($fcmToken, $testMessage);
+
+            if ($success) {
+                return new JsonResponse([
+                    'message' => 'Notification de test envoyée avec succès',
+                    'fcm_token' => substr($fcmToken, 0, 20) . '...'
+                ]);
+            } else {
+                return new JsonResponse([
+                    'error' => 'Échec de l\'envoi de la notification de test'
+                ], Response::HTTP_INTERNAL_SERVER_ERROR);
+            }
+        } catch (\Exception $e) {
+            return new JsonResponse([
+                'error' => 'Erreur lors du test: ' . $e->getMessage()
+            ], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
     }
 
     /**
@@ -190,6 +165,34 @@ class NotificationController extends AbstractController
                 'error' => 'Erreur lors de l\'envoi de la notification: ' . $e->getMessage()
             ], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
+    }
+
+    /**
+     * Diagnostic de la configuration FCM
+     */
+    #[Route('/diagnostic', name: 'diagnostic', methods: ['GET'])]
+    public function diagnostic(): JsonResponse
+    {
+        $user = $this->getUser();
+        if (!$user instanceof User) {
+            return new JsonResponse(['error' => 'Utilisateur non trouvé'], Response::HTTP_UNAUTHORIZED);
+        }
+
+        $diagnostic = [
+            'user_id' => $user->getId(),
+            'user_email' => $user->getEmail(),
+            'fcm_token_registered' => !empty($user->getFcmToken()),
+            'fcm_token_length' => $user->getFcmToken() ? strlen($user->getFcmToken()) : 0,
+            'fcm_token_preview' => $user->getFcmToken() ? substr($user->getFcmToken(), 0, 20) . '...' : null,
+            'user_currency' => $user->getDevise() ? $user->getDevise()->getCode() : 'XOF',
+            'configuration' => [
+                'fcm_project_id' => $this->notificationService->getProjectId(),
+                'fcm_url' => $this->notificationService->getFcmUrl(),
+                'access_token_configured' => $this->notificationService->isAccessTokenConfigured()
+            ]
+        ];
+
+        return new JsonResponse($diagnostic);
     }
 
     /**

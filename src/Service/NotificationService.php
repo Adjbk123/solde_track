@@ -5,6 +5,7 @@ namespace App\Service;
 use App\Entity\User;
 use App\Entity\Mouvement;
 use App\Entity\Dette;
+use App\Entity\Depense;
 use App\Entity\Projet;
 use App\Entity\Compte;
 use Doctrine\ORM\EntityManagerInterface;
@@ -391,7 +392,10 @@ class NotificationService
             $this->logger->error('Exception lors de l\'envoi FCM v1', [
                 'message' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
-                'project_id' => $this->fcmProjectId
+                'project_id' => $this->fcmProjectId,
+                'fcm_token_length' => strlen($fcmToken),
+                'access_token_length' => strlen($this->fcmAccessToken),
+                'url' => $url
             ]);
             return false;
         }
@@ -484,6 +488,38 @@ class NotificationService
             }
         }
         return $total;
+    }
+
+    /**
+     * Envoie une notification de test
+     */
+    public function sendTestNotification(string $fcmToken, array $message): bool
+    {
+        return $this->sendFCMNotification($fcmToken, $message);
+    }
+
+    /**
+     * Obtient l'ID du projet FCM
+     */
+    public function getProjectId(): string
+    {
+        return $this->fcmProjectId;
+    }
+
+    /**
+     * Obtient l'URL FCM
+     */
+    public function getFcmUrl(): string
+    {
+        return $this->fcmUrl;
+    }
+
+    /**
+     * Vérifie si le token d'accès est configuré
+     */
+    public function isAccessTokenConfigured(): bool
+    {
+        return !empty($this->fcmAccessToken);
     }
 
     /**
