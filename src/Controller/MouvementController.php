@@ -442,7 +442,6 @@ class MouvementController extends AbstractController
         ]);
     }
 
-
     #[Route('/dettes', name: 'create_dette', methods: ['POST'])]
     public function createDette(Request $request): JsonResponse
     {
@@ -595,128 +594,6 @@ class MouvementController extends AbstractController
         ], Response::HTTP_CREATED);
     }
 
-    #[Route('/statistiques', name: 'statistiques', methods: ['GET'])]
-    public function getStatistiques(Request $request): JsonResponse
-    {
-        $user = $this->getUser();
-        if (!$user instanceof User) {
-            return new JsonResponse(['error' => 'Non authentifié'], Response::HTTP_UNAUTHORIZED);
-        }
-
-        $debut = $request->query->get('debut');
-        $fin = $request->query->get('fin');
-        $type = $request->query->get('type');
-
-        $qb = $this->entityManager->getRepository(Mouvement::class)
-            ->createQueryBuilder('m')
-            ->where('m.user = :user')
-            ->setParameter('user', $user);
-
-        if ($debut) {
-            $qb->andWhere('m.date >= :debut')->setParameter('debut', new \DateTime($debut));
-        }
-        if ($fin) {
-            $qb->andWhere('m.date <= :fin')->setParameter('fin', new \DateTime($fin));
-        }
-        if ($type) {
-            $qb->andWhere('m.type = :type')->setParameter('type', $type);
-        }
-
-        $mouvements = $qb->getQuery()->getResult();
-
-        $totalDepenses = 0;
-        $totalEntrees = 0;
-        $totalDettes = 0;
-        $totalDons = 0;
-        $mouvementsParType = [];
-        $mouvementsParCategorie = [];
-
-        foreach ($mouvements as $mouvement) {
-            $montant = (float) $mouvement->getMontantEffectif();
-            $typeMouvement = $mouvement->getType();
-            $categorieNom = $mouvement->getCategorie()->getNom();
-
-            switch ($typeMouvement) {
-                case 'depense':
-                    $totalDepenses += $montant;
-                    break;
-                case 'entree':
-                    $totalEntrees += $montant;
-                    break;
-                case 'dette':
-                    $totalDettes += $montant;
-                    break;
-                case 'don':
-                    $totalDons += $montant;
-                    break;
-            }
-
-            // Statistiques par type
-            if (!isset($mouvementsParType[$typeMouvement])) {
-                $mouvementsParType[$typeMouvement] = ['count' => 0, 'total' => 0];
-            }
-            $mouvementsParType[$typeMouvement]['count']++;
-            $mouvementsParType[$typeMouvement]['total'] += $montant;
-
-            // Statistiques par catégorie
-            if (!isset($mouvementsParCategorie[$categorieNom])) {
-                $mouvementsParCategorie[$categorieNom] = ['count' => 0, 'total' => 0];
-            }
-            $mouvementsParCategorie[$categorieNom]['count']++;
-            $mouvementsParCategorie[$categorieNom]['total'] += $montant;
-        }
-
-        return new JsonResponse([
-            'statistiques' => [
-                'totalDepenses' => $totalDepenses,
-                'totalDepensesFormatted' => $this->userDeviseService->formatAmount($user, $totalDepenses),
-                'totalEntrees' => $totalEntrees,
-                'totalEntreesFormatted' => $this->userDeviseService->formatAmount($user, $totalEntrees),
-                'totalDettes' => $totalDettes,
-                'totalDettesFormatted' => $this->userDeviseService->formatAmount($user, $totalDettes),
-                'totalDons' => $totalDons,
-                'totalDonsFormatted' => $this->userDeviseService->formatAmount($user, $totalDons),
-                'soldeNet' => $totalEntrees - $totalDepenses,
-                'soldeNetFormatted' => $this->userDeviseService->formatAmount($user, $totalEntrees - $totalDepenses),
-                'nombreTotal' => count($mouvements)
-            ],
-            'parType' => $mouvementsParType,
-            'parCategorie' => $mouvementsParCategorie
-        ]);
-    }
-
-    #[Route('/recents', name: 'recents', methods: ['GET'])]
-    public function getRecents(Request $request): JsonResponse
-    {
-        $user = $this->getUser();
-        if (!$user instanceof User) {
-            return new JsonResponse(['error' => 'Non authentifié'], Response::HTTP_UNAUTHORIZED);
-        }
-
-        $limit = (int) $request->query->get('limit', 10);
-        $type = $request->query->get('type');
-
-        $qb = $this->entityManager->getRepository(Mouvement::class)
-            ->createQueryBuilder('m')
-            ->where('m.user = :user')
-            ->setParameter('user', $user)
-            ->orderBy('m.date', 'DESC')
-            ->setMaxResults($limit);
-
-        if ($type) {
-            $qb->andWhere('m.type = :type')->setParameter('type', $type);
-        }
-
-        $mouvements = $qb->getQuery()->getResult();
-
-        $data = [];
-        foreach ($mouvements as $mouvement) {
-            $data[] = $this->serializeMouvement($mouvement, $user);
-        }
-
-        return new JsonResponse(['mouvements' => $data]);
-    }
-
     private function serializeMouvement(Mouvement $mouvement, User $user = null): array
     {
         $data = [
@@ -730,24 +607,31 @@ class MouvementController extends AbstractController
             'statutLabel' => $mouvement->getStatutLabel(),
             'date' => $mouvement->getDate()->format('Y-m-d H:i:s'),
             'description' => $mouvement->getDescription(),
-            'categorie' => [
-                'id' => $mouvement->getCategorie()->getId(),
-                'nom' => $mouvement->getCategorie()->getNom(),
-                'type' => $mouvement->getCategorie()->getType()
-            ]
         ];
 
-        // Ajouter le formatage des montants si l'utilisateur est fourni
         if ($user) {
             $data['montantTotalFormatted'] = $this->userDeviseService->formatAmount($user, (float) $mouvement->getMontantTotal());
             $data['montantEffectifFormatted'] = $this->userDeviseService->formatAmount($user, (float) $mouvement->getMontantEffectif());
             $data['montantRestantFormatted'] = $this->userDeviseService->formatAmount($user, (float) $mouvement->getMontantRestant());
         }
 
+        // Ajouter les relations si elles existent
+        if ($mouvement->getCategorie()) {
+            $data['categorie'] = [
+                'id' => $mouvement->getCategorie()->getId(),
+                'nom' => $mouvement->getCategorie()->getNom(),
+                'type' => $mouvement->getCategorie()->getType(),
+                'couleur' => $mouvement->getCategorie()->getCouleur(),
+            ];
+        }
+
         if ($mouvement->getProjet()) {
             $data['projet'] = [
                 'id' => $mouvement->getProjet()->getId(),
-                'nom' => $mouvement->getProjet()->getNom()
+                'nom' => $mouvement->getProjet()->getNom(),
+                'description' => $mouvement->getProjet()->getDescription(),
+                'budgetPrevu' => $mouvement->getProjet()->getBudgetPrevu(),
+                'budgetPrevuFormatted' => $user ? $this->userDeviseService->formatAmount($user, (float) $mouvement->getProjet()->getBudgetPrevu()) : null,
             ];
         }
 
@@ -755,7 +639,9 @@ class MouvementController extends AbstractController
             $data['contact'] = [
                 'id' => $mouvement->getContact()->getId(),
                 'nom' => $mouvement->getContact()->getNom(),
-                'telephone' => $mouvement->getContact()->getTelephone()
+                'telephone' => $mouvement->getContact()->getTelephone(),
+                'email' => $mouvement->getContact()->getEmail(),
+                'source' => $mouvement->getContact()->getSource(),
             ];
         }
 
@@ -763,11 +649,14 @@ class MouvementController extends AbstractController
             $data['compte'] = [
                 'id' => $mouvement->getCompte()->getId(),
                 'nom' => $mouvement->getCompte()->getNom(),
-                'type' => $mouvement->getCompte()->getType()
+                'description' => $mouvement->getCompte()->getDescription(),
+                'soldeActuel' => $mouvement->getCompte()->getSoldeActuel(),
+                'soldeActuelFormatted' => $user ? $this->userDeviseService->formatAmount($user, (float) $mouvement->getCompte()->getSoldeActuel()) : null,
+                'devise' => $mouvement->getCompte()->getDevise()->getCode(),
             ];
         }
 
-        // Ajouter les données spécifiques selon le type
+        // Ajouter les champs spécifiques selon le type
         if ($mouvement instanceof Depense) {
             $data['lieu'] = $mouvement->getLieu();
             $data['methodePaiement'] = $mouvement->getMethodePaiement();
