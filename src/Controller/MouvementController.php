@@ -132,6 +132,13 @@ class MouvementController extends AbstractController
             }
         }
 
+        if (isset($data['compte_id'])) {
+            $compte = $this->entityManager->getRepository(Compte::class)->find($data['compte_id']);
+            if ($compte && $compte->getUser() === $user) {
+                $depense->setCompte($compte);
+            }
+        }
+
         if (isset($data['date'])) {
             $depense->setDate(new \DateTime($data['date']));
         }
@@ -199,6 +206,13 @@ class MouvementController extends AbstractController
             $contact = $this->entityManager->getRepository(Contact::class)->find($data['contact_id']);
             if ($contact && $contact->getUser() === $user) {
                 $entree->setContact($contact);
+            }
+        }
+
+        if (isset($data['compte_id'])) {
+            $compte = $this->entityManager->getRepository(Compte::class)->find($data['compte_id']);
+            if ($compte && $compte->getUser() === $user) {
+                $entree->setCompte($compte);
             }
         }
 
@@ -361,6 +375,13 @@ class MouvementController extends AbstractController
             }
         }
 
+        if (isset($data['compte_id'])) {
+            $compte = $this->entityManager->getRepository(Compte::class)->find($data['compte_id']);
+            if ($compte && $compte->getUser() === $user) {
+                $dette->setCompte($compte);
+            }
+        }
+
         if (isset($data['date'])) {
             $dette->setDate(new \DateTime($data['date']));
         }
@@ -426,6 +447,13 @@ class MouvementController extends AbstractController
             $contact = $this->entityManager->getRepository(Contact::class)->find($data['contact_id']);
             if ($contact && $contact->getUser() === $user) {
                 $don->setContact($contact);
+            }
+        }
+
+        if (isset($data['compte_id'])) {
+            $compte = $this->entityManager->getRepository(Compte::class)->find($data['compte_id']);
+            if ($compte && $compte->getUser() === $user) {
+                $don->setCompte($compte);
             }
         }
 
