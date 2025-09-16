@@ -1,0 +1,34 @@
+doctrine:
+    orm:
+        dql:
+            datetime_functions:
+                DATE: DoctrineExtensions\Query\Mysql\Date
+                YEAR: DoctrineExtensions\Query\Mysql\Year
+                MONTH: DoctrineExtensions\Query\Mysql\Month
+                DAY: DoctrineExtensions\Query\Mysql\Day
+                HOUR: DoctrineExtensions\Query\Mysql\Hour
+                MINUTE: DoctrineExtensions\Query\Mysql\Minute
+                SECOND: DoctrineExtensions\Query\Mysql\Second
+                DATE_FORMAT: DoctrineExtensions\Query\Mysql\DateFormat
+                DATE_ADD: DoctrineExtensions\Query\Mysql\DateAdd
+                DATE_SUB: DoctrineExtensions\Query\Mysql\DateSub
+                DATEDIFF: DoctrineExtensions\Query\Mysql\DateDiff
+                NOW: DoctrineExtensions\Query\Mysql\Now
+                STR_TO_DATE: DoctrineExtensions\Query\Mysql\StrToDate
+            string_functions:
+                CONCAT: DoctrineExtensions\Query\Mysql\Concat
+                CONCAT_WS: DoctrineExtensions\Query\Mysql\ConcatWs
+                SUBSTRING: DoctrineExtensions\Query\Mysql\Substring
+                LOWER: DoctrineExtensions\Query\Mysql\Lower
+                UPPER: DoctrineExtensions\Query\Mysql\Upper
+                LENGTH: DoctrineExtensions\Query\Mysql\Length
+                TRIM: DoctrineExtensions\Query\Mysql\Trim
+                REPLACE: DoctrineExtensions\Query\Mysql\Replace
+            numeric_functions:
+                ROUND: DoctrineExtensions\Query\Mysql\Round
+                RAND: DoctrineExtensions\Query\Mysql\Rand
+                COUNT: DoctrineExtensions\Query\Mysql\Count
+                AVG: DoctrineExtensions\Query\Mysql\Avg
+                SUM: DoctrineExtensions\Query\Mysql\Sum
+                MIN: DoctrineExtensions\Query\Mysql\Min
+                MAX: DoctrineExtensions\Query\Mysql\Max
