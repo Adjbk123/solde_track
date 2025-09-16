@@ -165,8 +165,8 @@ class MouvementController extends AbstractController
         
         $this->entityManager->flush();
 
-        // Envoyer une notification de motivation si c'est la première dépense du jour
-        $this->sendMotivationIfNeeded($user, 'depense');
+        // Envoyer une notification de motivation si c'est la première dépense du jour (temporairement désactivé)
+        // $this->sendMotivationIfNeeded($user, 'depense');
 
         return new JsonResponse([
             'message' => 'Dépense créée avec succès',
@@ -248,8 +248,8 @@ class MouvementController extends AbstractController
         
         $this->entityManager->flush();
 
-        // Envoyer une notification d'alerte de revenu
-        $this->sendIncomeNotification($user, $entree);
+        // Envoyer une notification d'alerte de revenu (temporairement désactivé)
+        // $this->sendIncomeNotification($user, $entree);
 
         return new JsonResponse([
             'message' => 'Entrée créée avec succès',
