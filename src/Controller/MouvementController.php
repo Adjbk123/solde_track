@@ -794,4 +794,315 @@ class MouvementController extends AbstractController
         }
     }
 
+    /**
+     * Récupérer les mouvements du jour
+     */
+    #[Route('/today', name: 'today', methods: ['GET'])]
+    public function getTodayMovements(Request $request): JsonResponse
+    {
+        $user = $this->getUser();
+        if (!$user instanceof User) {
+            return new JsonResponse(['error' => 'Non authentifié'], Response::HTTP_UNAUTHORIZED);
+        }
+
+        $type = $request->query->get('type'); // depense, entree, dette, don
+        $today = new \DateTime();
+        $today->setTime(0, 0, 0);
+        $tomorrow = clone $today;
+        $tomorrow->modify('+1 day');
+
+        $qb = $this->entityManager->getRepository(Mouvement::class)
+            ->createQueryBuilder('m')
+            ->where('m.user = :user')
+            ->andWhere('m.date >= :start')
+            ->andWhere('m.date < :end')
+            ->setParameter('user', $user)
+            ->setParameter('start', $today)
+            ->setParameter('end', $tomorrow)
+            ->orderBy('m.date', 'DESC');
+
+        if ($type) {
+            $qb->andWhere('m INSTANCE OF :type');
+            $typeClass = match($type) {
+                'depense' => Depense::class,
+                'entree' => Entree::class,
+                'dette' => Dette::class,
+                'don' => Don::class,
+                default => null
+            };
+            if ($typeClass) {
+                $qb->setParameter('type', $typeClass);
+            }
+        }
+
+        $mouvements = $qb->getQuery()->getResult();
+
+        return new JsonResponse([
+            'date' => $today->format('Y-m-d'),
+            'mouvements' => array_map(fn($m) => $this->serializeMouvement($m, $user), $mouvements),
+            'total' => count($mouvements)
+        ]);
+    }
+
+    /**
+     * Récupérer les mouvements d'une période
+     */
+    #[Route('/period', name: 'period', methods: ['GET'])]
+    public function getPeriodMovements(Request $request): JsonResponse
+    {
+        $user = $this->getUser();
+        if (!$user instanceof User) {
+            return new JsonResponse(['error' => 'Non authentifié'], Response::HTTP_UNAUTHORIZED);
+        }
+
+        $type = $request->query->get('type');
+        $startDate = $request->query->get('start_date');
+        $endDate = $request->query->get('end_date');
+
+        if (!$startDate || !$endDate) {
+            return new JsonResponse(['error' => 'start_date et end_date sont requis'], Response::HTTP_BAD_REQUEST);
+        }
+
+        try {
+            $start = new \DateTime($startDate);
+            $start->setTime(0, 0, 0);
+            $end = new \DateTime($endDate);
+            $end->setTime(23, 59, 59);
+        } catch (\Exception $e) {
+            return new JsonResponse(['error' => 'Format de date invalide'], Response::HTTP_BAD_REQUEST);
+        }
+
+        $qb = $this->entityManager->getRepository(Mouvement::class)
+            ->createQueryBuilder('m')
+            ->where('m.user = :user')
+            ->andWhere('m.date >= :start')
+            ->andWhere('m.date <= :end')
+            ->setParameter('user', $user)
+            ->setParameter('start', $start)
+            ->setParameter('end', $end)
+            ->orderBy('m.date', 'DESC');
+
+        if ($type) {
+            $qb->andWhere('m INSTANCE OF :type');
+            $typeClass = match($type) {
+                'depense' => Depense::class,
+                'entree' => Entree::class,
+                'dette' => Dette::class,
+                'don' => Don::class,
+                default => null
+            };
+            if ($typeClass) {
+                $qb->setParameter('type', $typeClass);
+            }
+        }
+
+        $mouvements = $qb->getQuery()->getResult();
+
+        return new JsonResponse([
+            'start_date' => $start->format('Y-m-d'),
+            'end_date' => $end->format('Y-m-d'),
+            'mouvements' => array_map(fn($m) => $this->serializeMouvement($m, $user), $mouvements),
+            'total' => count($mouvements)
+        ]);
+    }
+
+    /**
+     * Récupérer les mouvements de la semaine
+     */
+    #[Route('/week', name: 'week', methods: ['GET'])]
+    public function getWeekMovements(Request $request): JsonResponse
+    {
+        $user = $this->getUser();
+        if (!$user instanceof User) {
+            return new JsonResponse(['error' => 'Non authentifié'], Response::HTTP_UNAUTHORIZED);
+        }
+
+        $type = $request->query->get('type');
+        $weekOffset = (int) $request->query->get('week_offset', 0); // 0 = cette semaine, -1 = semaine dernière, etc.
+
+        $today = new \DateTime();
+        $today->modify("+{$weekOffset} weeks");
+        
+        // Début de la semaine (lundi)
+        $startOfWeek = clone $today;
+        $startOfWeek->modify('monday this week')->setTime(0, 0, 0);
+        
+        // Fin de la semaine (dimanche)
+        $endOfWeek = clone $startOfWeek;
+        $endOfWeek->modify('sunday this week')->setTime(23, 59, 59);
+
+        $qb = $this->entityManager->getRepository(Mouvement::class)
+            ->createQueryBuilder('m')
+            ->where('m.user = :user')
+            ->andWhere('m.date >= :start')
+            ->andWhere('m.date <= :end')
+            ->setParameter('user', $user)
+            ->setParameter('start', $startOfWeek)
+            ->setParameter('end', $endOfWeek)
+            ->orderBy('m.date', 'DESC');
+
+        if ($type) {
+            $qb->andWhere('m INSTANCE OF :type');
+            $typeClass = match($type) {
+                'depense' => Depense::class,
+                'entree' => Entree::class,
+                'dette' => Dette::class,
+                'don' => Don::class,
+                default => null
+            };
+            if ($typeClass) {
+                $qb->setParameter('type', $typeClass);
+            }
+        }
+
+        $mouvements = $qb->getQuery()->getResult();
+
+        return new JsonResponse([
+            'week_start' => $startOfWeek->format('Y-m-d'),
+            'week_end' => $endOfWeek->format('Y-m-d'),
+            'week_offset' => $weekOffset,
+            'mouvements' => array_map(fn($m) => $this->serializeMouvement($m, $user), $mouvements),
+            'total' => count($mouvements)
+        ]);
+    }
+
+    /**
+     * Récupérer les mouvements du mois
+     */
+    #[Route('/month', name: 'month', methods: ['GET'])]
+    public function getMonthMovements(Request $request): JsonResponse
+    {
+        $user = $this->getUser();
+        if (!$user instanceof User) {
+            return new JsonResponse(['error' => 'Non authentifié'], Response::HTTP_UNAUTHORIZED);
+        }
+
+        $type = $request->query->get('type');
+        $monthOffset = (int) $request->query->get('month_offset', 0); // 0 = ce mois, -1 = mois dernier, etc.
+
+        $today = new \DateTime();
+        $today->modify("+{$monthOffset} months");
+        
+        // Début du mois
+        $startOfMonth = clone $today;
+        $startOfMonth->modify('first day of this month')->setTime(0, 0, 0);
+        
+        // Fin du mois
+        $endOfMonth = clone $today;
+        $endOfMonth->modify('last day of this month')->setTime(23, 59, 59);
+
+        $qb = $this->entityManager->getRepository(Mouvement::class)
+            ->createQueryBuilder('m')
+            ->where('m.user = :user')
+            ->andWhere('m.date >= :start')
+            ->andWhere('m.date <= :end')
+            ->setParameter('user', $user)
+            ->setParameter('start', $startOfMonth)
+            ->setParameter('end', $endOfMonth)
+            ->orderBy('m.date', 'DESC');
+
+        if ($type) {
+            $qb->andWhere('m INSTANCE OF :type');
+            $typeClass = match($type) {
+                'depense' => Depense::class,
+                'entree' => Entree::class,
+                'dette' => Dette::class,
+                'don' => Don::class,
+                default => null
+            };
+            if ($typeClass) {
+                $qb->setParameter('type', $typeClass);
+            }
+        }
+
+        $mouvements = $qb->getQuery()->getResult();
+
+        return new JsonResponse([
+            'month' => $startOfMonth->format('Y-m'),
+            'month_start' => $startOfMonth->format('Y-m-d'),
+            'month_end' => $endOfMonth->format('Y-m-d'),
+            'month_offset' => $monthOffset,
+            'mouvements' => array_map(fn($m) => $this->serializeMouvement($m, $user), $mouvements),
+            'total' => count($mouvements)
+        ]);
+    }
+
+    /**
+     * Récupérer les dépenses du jour
+     */
+    #[Route('/depenses/today', name: 'depenses_today', methods: ['GET'])]
+    public function getTodayDepenses(Request $request): JsonResponse
+    {
+        $user = $this->getUser();
+        if (!$user instanceof User) {
+            return new JsonResponse(['error' => 'Non authentifié'], Response::HTTP_UNAUTHORIZED);
+        }
+
+        $today = new \DateTime();
+        $today->setTime(0, 0, 0);
+        $tomorrow = clone $today;
+        $tomorrow->modify('+1 day');
+
+        $depenses = $this->entityManager->getRepository(Depense::class)
+            ->createQueryBuilder('d')
+            ->where('d.user = :user')
+            ->andWhere('d.date >= :start')
+            ->andWhere('d.date < :end')
+            ->setParameter('user', $user)
+            ->setParameter('start', $today)
+            ->setParameter('end', $tomorrow)
+            ->orderBy('d.date', 'DESC')
+            ->getQuery()
+            ->getResult();
+
+        $totalDepenses = array_sum(array_map(fn($d) => (float) $d->getMontantTotal(), $depenses));
+
+        return new JsonResponse([
+            'date' => $today->format('Y-m-d'),
+            'depenses' => array_map(fn($d) => $this->serializeMouvement($d, $user), $depenses),
+            'total_count' => count($depenses),
+            'total_amount' => $totalDepenses,
+            'total_amount_formatted' => number_format($totalDepenses) . ' ' . ($user->getDevise() ? $user->getDevise()->getCode() : 'XOF')
+        ]);
+    }
+
+    /**
+     * Récupérer les revenus du jour
+     */
+    #[Route('/entrees/today', name: 'entrees_today', methods: ['GET'])]
+    public function getTodayEntrees(Request $request): JsonResponse
+    {
+        $user = $this->getUser();
+        if (!$user instanceof User) {
+            return new JsonResponse(['error' => 'Non authentifié'], Response::HTTP_UNAUTHORIZED);
+        }
+
+        $today = new \DateTime();
+        $today->setTime(0, 0, 0);
+        $tomorrow = clone $today;
+        $tomorrow->modify('+1 day');
+
+        $entrees = $this->entityManager->getRepository(Entree::class)
+            ->createQueryBuilder('e')
+            ->where('e.user = :user')
+            ->andWhere('e.date >= :start')
+            ->andWhere('e.date < :end')
+            ->setParameter('user', $user)
+            ->setParameter('start', $today)
+            ->setParameter('end', $tomorrow)
+            ->orderBy('e.date', 'DESC')
+            ->getQuery()
+            ->getResult();
+
+        $totalEntrees = array_sum(array_map(fn($e) => (float) $e->getMontantTotal(), $entrees));
+
+        return new JsonResponse([
+            'date' => $today->format('Y-m-d'),
+            'entrees' => array_map(fn($e) => $this->serializeMouvement($e, $user), $entrees),
+            'total_count' => count($entrees),
+            'total_amount' => $totalEntrees,
+            'total_amount_formatted' => number_format($totalEntrees) . ' ' . ($user->getDevise() ? $user->getDevise()->getCode() : 'XOF')
+        ]);
+    }
+
 }
