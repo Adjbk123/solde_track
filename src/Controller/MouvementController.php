@@ -13,6 +13,7 @@ use App\Entity\Contact;
 use App\Entity\User;
 use App\Entity\Compte;
 use App\Service\UserDeviseService;
+use App\Service\NotificationService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -27,7 +28,8 @@ class MouvementController extends AbstractController
     public function __construct(
         private EntityManagerInterface $entityManager,
         private ValidatorInterface $validator,
-        private UserDeviseService $userDeviseService
+        private UserDeviseService $userDeviseService,
+        private NotificationService $notificationService
     ) {}
 
     #[Route('', name: 'list', methods: ['GET'])]
@@ -163,6 +165,9 @@ class MouvementController extends AbstractController
         
         $this->entityManager->flush();
 
+        // Envoyer une notification de motivation si c'est la première dépense du jour
+        $this->sendMotivationIfNeeded($user, 'depense');
+
         return new JsonResponse([
             'message' => 'Dépense créée avec succès',
             'mouvement' => $this->serializeMouvement($depense, $user)
@@ -242,6 +247,9 @@ class MouvementController extends AbstractController
         $this->updateCompteSolde($entree);
         
         $this->entityManager->flush();
+
+        // Envoyer une notification d'alerte de revenu
+        $this->sendIncomeNotification($user, $entree);
 
         return new JsonResponse([
             'message' => 'Entrée créée avec succès',
@@ -736,5 +744,52 @@ class MouvementController extends AbstractController
         // Mettre à jour le solde du compte
         $compte->setSoldeActuel(number_format($nouveauSolde, 2, '.', ''));
         $compte->setDateModification(new \DateTime());
+    }
+
+    /**
+     * Envoie une notification de motivation si nécessaire
+     */
+    private function sendMotivationIfNeeded(User $user, string $type): void
+    {
+        try {
+            // Vérifier si c'est la première transaction du jour
+            $today = new \DateTime();
+            $mouvementRepository = $this->entityManager->getRepository(Mouvement::class);
+            
+            $todayMovements = $mouvementRepository->createQueryBuilder('m')
+                ->where('m.user = :user')
+                ->andWhere('DATE(m.date) = :today')
+                ->setParameter('user', $user)
+                ->setParameter('today', $today->format('Y-m-d'))
+                ->getQuery()
+                ->getResult();
+            
+            // Si c'est la première transaction du jour, envoyer une notification de motivation
+            if (count($todayMovements) === 1) {
+                $this->notificationService->sendMotivationNotification($user);
+            }
+        } catch (\Exception $e) {
+            // Log l'erreur mais ne pas faire échouer la création du mouvement
+            error_log('Erreur lors de l\'envoi de notification de motivation: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Envoie une notification d'alerte de revenu
+     */
+    private function sendIncomeNotification(User $user, Entree $entree): void
+    {
+        try {
+            $data = [
+                'amount' => $entree->getMontantTotal(),
+                'source' => $entree->getCategorie() ? $entree->getCategorie()->getNom() : 'une source',
+                'currency' => $user->getDevise() ? $user->getDevise()->getCode() : 'XOF'
+            ];
+            
+            $this->notificationService->sendNotification($user, 'INCOME_ALERT', $data);
+        } catch (\Exception $e) {
+            // Log l'erreur mais ne pas faire échouer la création du mouvement
+            error_log('Erreur lors de l\'envoi de notification de revenu: ' . $e->getMessage());
+        }
     }
 }

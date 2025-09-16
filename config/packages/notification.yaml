@@ -1,0 +1,9 @@
+parameters:
+    app.fcm_access_token: '%env(FCM_ACCESS_TOKEN)%'
+    app.fcm_project_id: '%env(FCM_PROJECT_ID)%'
+
+services:
+    App\Service\NotificationService:
+        arguments:
+            $params: '@parameter_bag'
+            $logger: '@logger'

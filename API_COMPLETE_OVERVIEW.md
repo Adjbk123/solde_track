@@ -97,6 +97,16 @@ Voici la liste complète de toutes les APIs disponibles dans SoldeTrack pour le 
   - `DELETE /api/profile` - Supprimer le compte
   - `GET /api/profile/statistiques` - Statistiques du profil
   - `GET /api/profile/preferences` - Préférences utilisateur
+
+### 🔔 **9. Notifications Push**
+- **Fichier** : `API_NOTIFICATIONS.md`
+- **Endpoints** :
+  - `POST /api/notifications/register-token` - Enregistrer le token FCM
+  - `POST /api/notifications/test` - Tester une notification
+  - `POST /api/notifications/check-debts` - Vérifier les dettes en retard
+  - `POST /api/notifications/check-projects` - Vérifier les projets en dépassement
+  - `POST /api/notifications/motivation` - Envoyer une notification de motivation
+  - `GET /api/notifications/types` - Obtenir les types de notifications
   - `PUT /api/profile/preferences` - Modifier les préférences
   - `GET /api/profile/export-data` - Exporter les données
 

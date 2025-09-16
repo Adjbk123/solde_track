@@ -22,5 +22,11 @@ services:
             $targetDirectory: '%kernel.project_dir%/public/uploads/profils'
             $slugger: '@Symfony\Component\String\Slugger\SluggerInterface'
 
+    # Configuration du service de notifications
+    App\Service\NotificationService:
+        arguments:
+            $params: '@parameter_bag'
+            $logger: '@logger'
+
     # add more service definitions when explicit configuration is needed
     # please note that last definitions always *replace* previous ones

@@ -12,3 +12,7 @@
 ###> lexik/jwt-authentication-bundle ###
 /config/jwt/*.pem
 ###< lexik/jwt-authentication-bundle ###
+
+###> Firebase Service Account ###
+/config/firebase/*.json
+###< Firebase Service Account ###

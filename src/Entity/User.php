@@ -50,6 +50,9 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column(type: Types::DATETIME_MUTABLE)]
     private ?\DateTimeInterface $dateCreation = null;
 
+    #[ORM\Column(length: 255, nullable: true)]
+    private ?string $fcmToken = null;
+
     #[ORM\OneToMany(mappedBy: 'user', targetEntity: Mouvement::class, orphanRemoval: true)]
     private Collection $mouvements;
 
@@ -410,5 +413,17 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     public function eraseCredentials(): void
     {
         // @deprecated, to be removed when upgrading to Symfony 8
+    }
+
+    public function getFcmToken(): ?string
+    {
+        return $this->fcmToken;
+    }
+
+    public function setFcmToken(?string $fcmToken): static
+    {
+        $this->fcmToken = $fcmToken;
+
+        return $this;
     }
 }
