@@ -1,0 +1,32 @@
+{
+  "contacts": [
+    {
+      "nom": "Jean Dupont",
+      "telephone": "+225123456789",
+      "email": "jean.dupont@example.com",
+      "source": "import_telephone"
+    },
+    {
+      "nom": "Marie Martin",
+      "telephone": "+225987654321",
+      "email": "marie.martin@example.com",
+      "source": "import_telephone"
+    },
+    {
+      "nom": "Paul Durand",
+      "telephone": "+225555666777",
+      "source": "manuel"
+    },
+    {
+      "nom": "Alice Bernard",
+      "telephone": "+225111222333",
+      "email": "alice.bernard@example.com",
+      "source": "manuel"
+    },
+    {
+      "nom": "Bob Moreau",
+      "telephone": "+225444555666",
+      "source": "import_telephone"
+    }
+  ]
+}

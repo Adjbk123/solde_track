@@ -63,7 +63,7 @@ class ContactRepository extends ServiceEntityRepository
     }
 
     /**
-     * Find contact by phone number
+     * Find contact by user and telephone
      */
     public function findByTelephone($user, string $telephone): ?Contact
     {

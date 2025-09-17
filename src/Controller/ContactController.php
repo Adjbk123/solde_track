@@ -116,6 +116,162 @@ class ContactController extends AbstractController
         ], Response::HTTP_CREATED);
     }
 
+    #[Route('/batch', name: 'create_batch', methods: ['POST'])]
+    public function createBatch(Request $request): JsonResponse
+    {
+        $user = $this->getUser();
+        if (!$user) {
+            return new JsonResponse(['error' => 'Non authentifié'], Response::HTTP_UNAUTHORIZED);
+        }
+
+        $data = json_decode($request->getContent(), true);
+
+        if (!isset($data['contacts']) || !is_array($data['contacts']) || empty($data['contacts'])) {
+            return new JsonResponse([
+                'error' => 'Données manquantes',
+                'message' => 'Le tableau "contacts" est requis et ne peut pas être vide'
+            ], Response::HTTP_BAD_REQUEST);
+        }
+
+        $results = [
+            'created' => [],
+            'errors' => [],
+            'duplicates' => []
+        ];
+
+        $createdCount = 0;
+        $errorCount = 0;
+        $duplicateCount = 0;
+
+        foreach ($data['contacts'] as $index => $contactData) {
+            try {
+                // Validation des données requises
+                if (!isset($contactData['nom']) || !isset($contactData['telephone']) || !isset($contactData['source'])) {
+                    $results['errors'][] = [
+                        'index' => $index,
+                        'data' => $contactData,
+                        'error' => 'Données manquantes',
+                        'message' => 'Nom, téléphone et source sont requis'
+                    ];
+                    $errorCount++;
+                    continue;
+                }
+
+                // Vérifier si le contact existe déjà
+                $existingContact = $this->entityManager->getRepository(Contact::class)
+                    ->findByTelephone($user, $contactData['telephone']);
+                if ($existingContact) {
+                    $results['duplicates'][] = [
+                        'index' => $index,
+                        'data' => $contactData,
+                        'existing_contact' => [
+                            'id' => $existingContact->getId(),
+                            'nom' => $existingContact->getNom(),
+                            'telephone' => $existingContact->getTelephone()
+                        ],
+                        'message' => 'Un contact avec ce numéro existe déjà'
+                    ];
+                    $duplicateCount++;
+                    continue;
+                }
+
+                // Créer le nouveau contact
+                $contact = new Contact();
+                $contact->setUser($user);
+                $contact->setNom($contactData['nom']);
+                $contact->setTelephone($contactData['telephone']);
+                $contact->setEmail($contactData['email'] ?? null);
+                $contact->setSource($contactData['source']);
+
+                // Validation
+                $errors = $this->validator->validate($contact);
+                if (count($errors) > 0) {
+                    $errorMessages = [];
+                    foreach ($errors as $error) {
+                        $errorMessages[] = $error->getMessage();
+                    }
+                    $results['errors'][] = [
+                        'index' => $index,
+                        'data' => $contactData,
+                        'error' => 'Données invalides',
+                        'messages' => $errorMessages
+                    ];
+                    $errorCount++;
+                    continue;
+                }
+
+                // Persister le contact
+                $this->entityManager->persist($contact);
+                
+                $results['created'][] = [
+                    'index' => $index,
+                    'contact' => [
+                        'nom' => $contact->getNom(),
+                        'telephone' => $contact->getTelephone(),
+                        'email' => $contact->getEmail(),
+                        'source' => $contact->getSource(),
+                        'sourceLabel' => $contact->getSourceLabel()
+                    ]
+                ];
+                $createdCount++;
+
+            } catch (\Exception $e) {
+                $results['errors'][] = [
+                    'index' => $index,
+                    'data' => $contactData,
+                    'error' => 'Erreur système',
+                    'message' => $e->getMessage()
+                ];
+                $errorCount++;
+            }
+        }
+
+        // Sauvegarder tous les contacts valides en une seule transaction
+        if ($createdCount > 0) {
+            try {
+                $this->entityManager->flush();
+                
+                // Récupérer les IDs des contacts créés
+                foreach ($results['created'] as &$createdContact) {
+                    $contact = $this->entityManager->getRepository(Contact::class)
+                        ->findByTelephone($user, $createdContact['contact']['telephone']);
+                    if ($contact) {
+                        $createdContact['contact']['id'] = $contact->getId();
+                        $createdContact['contact']['dateCreation'] = $contact->getDateCreation()->format('Y-m-d H:i:s');
+                    }
+                }
+            } catch (\Exception $e) {
+                return new JsonResponse([
+                    'error' => 'Erreur lors de la sauvegarde',
+                    'message' => $e->getMessage()
+                ], Response::HTTP_INTERNAL_SERVER_ERROR);
+            }
+        }
+
+        $totalProcessed = count($data['contacts']);
+        $response = [
+            'message' => 'Traitement en lot terminé',
+            'summary' => [
+                'total_processed' => $totalProcessed,
+                'created' => $createdCount,
+                'duplicates' => $duplicateCount,
+                'errors' => $errorCount
+            ],
+            'results' => $results
+        ];
+
+        // Déterminer le code de statut approprié
+        if ($createdCount > 0 && $errorCount === 0 && $duplicateCount === 0) {
+            $statusCode = Response::HTTP_CREATED; // 201 - Tous créés avec succès
+        } elseif ($createdCount > 0) {
+            $statusCode = Response::HTTP_MULTI_STATUS; // 207 - Succès partiel
+        } else {
+            $statusCode = Response::HTTP_BAD_REQUEST; // 400 - Aucun contact créé
+        }
+
+        return new JsonResponse($response, $statusCode);
+    }
+
     #[Route('/{id}', name: 'update', methods: ['PUT'])]
     public function update(string $id, Request $request): JsonResponse
     {
