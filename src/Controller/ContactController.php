@@ -19,6 +19,18 @@ class ContactController extends AbstractController
         private ValidatorInterface $validator
     ) {}
 
+    /**
+     * Normalise la source pour assurer la compatibilité
+     */
+    private function normalizeSource(string $source): string
+    {
+        // Convertir 'manual' en 'manuel' pour la compatibilité avec l'app mobile
+        if ($source === 'manual') {
+            return 'manuel';
+        }
+        return $source;
+    }
+
     #[Route('', name: 'list', methods: ['GET'])]
     public function list(Request $request): JsonResponse
     {
@@ -85,7 +97,7 @@ class ContactController extends AbstractController
         $contact->setNom($data['nom']);
         $contact->setTelephone($data['telephone']);
         $contact->setEmail($data['email'] ?? null);
-        $contact->setSource($data['source']);
+        $contact->setSource($this->normalizeSource($data['source']));
 
         $errors = $this->validator->validate($contact);
         if (count($errors) > 0) {
@@ -181,7 +193,7 @@ class ContactController extends AbstractController
                 $contact->setNom($contactData['nom']);
                 $contact->setTelephone($contactData['telephone']);
                 $contact->setEmail($contactData['email'] ?? null);
-                $contact->setSource($contactData['source']);
+                $contact->setSource($this->normalizeSource($contactData['source']));
 
                 // Validation
                 $errors = $this->validator->validate($contact);
@@ -298,7 +310,7 @@ class ContactController extends AbstractController
             $contact->setEmail($data['email']);
         }
         if (isset($data['source'])) {
-            $contact->setSource($data['source']);
+            $contact->setSource($this->normalizeSource($data['source']));
         }
 
         $errors = $this->validator->validate($contact);

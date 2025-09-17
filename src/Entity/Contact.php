@@ -14,10 +14,12 @@ class Contact
 {
     public const SOURCE_IMPORT_TELEPHONE = 'import_telephone';
     public const SOURCE_MANUEL = 'manuel';
+    public const SOURCE_MANUAL = 'manual'; // Compatibilité avec l'app mobile
 
     public const SOURCES = [
         self::SOURCE_IMPORT_TELEPHONE => 'Import Téléphone',
         self::SOURCE_MANUEL => 'Manuel',
+        self::SOURCE_MANUAL => 'Manuel', // Compatibilité avec l'app mobile
     ];
 
     #[ORM\Id]
