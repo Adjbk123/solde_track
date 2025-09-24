@@ -312,7 +312,13 @@ class MouvementController extends AbstractController
         $totalEntrees = 0;
         $totalDettes = 0;
         $totalDons = 0;
-        $mouvementsParType = [];
+        $mouvementsParType = [
+            'depense' => 0,
+            'entree' => 0,
+            'dette_a_payer' => 0,
+            'dette_a_recevoir' => 0,
+            'don' => 0
+        ];
         $mouvementsParCategorie = [];
 
         foreach ($mouvements as $mouvement) {
@@ -337,9 +343,6 @@ class MouvementController extends AbstractController
             }
 
             // Grouper par type
-            if (!isset($mouvementsParType[$typeMouvement])) {
-                $mouvementsParType[$typeMouvement] = 0;
-            }
             $mouvementsParType[$typeMouvement] += $montant;
 
             // Grouper par catégorie
