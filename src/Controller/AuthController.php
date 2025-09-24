@@ -114,7 +114,7 @@ class AuthController extends AbstractController
                 'email' => $user->getEmail(),
                 'nom' => $user->getNom(),
                 'prenoms' => $user->getPrenoms(),
-                'photo' => $user->getPhoto() ? $this->photoUploadService->getPublicUrl($user->getPhoto()) : null,
+                'photo' => $user->getPhoto(),
                 'dateNaissance' => $user->getDateNaissance()?->format('Y-m-d'),
                 'dateCreation' => $user->getDateCreation()->format('Y-m-d H:i:s'),
                 'devise' => [
@@ -163,7 +163,7 @@ class AuthController extends AbstractController
                 'email' => $user->getEmail(),
                 'nom' => $user->getNom(),
                 'prenoms' => $user->getPrenoms(),
-                'photo' => $user->getPhoto() ? $this->photoUploadService->getPublicUrl($user->getPhoto()) : null,
+                'photo' => $user->getPhoto(),
                 'dateNaissance' => $user->getDateNaissance()?->format('Y-m-d'),
                 'dateCreation' => $user->getDateCreation()->format('Y-m-d H:i:s'),
                 'devise' => [
@@ -347,7 +347,7 @@ class AuthController extends AbstractController
                 'email' => $user->getEmail(),
                 'nom' => $user->getNom(),
                 'prenoms' => $user->getPrenoms(),
-                'photo' => $user->getPhoto() ? $this->photoUploadService->getPublicUrl($user->getPhoto()) : null,
+                'photo' => $user->getPhoto(),
                 'dateNaissance' => $user->getDateNaissance()?->format('Y-m-d'),
                 'devise' => [
                     'id' => $user->getDevise()->getId(),

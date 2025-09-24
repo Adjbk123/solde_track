@@ -40,7 +40,7 @@ class ProfileController extends AbstractController
                 'email' => $user->getEmail(),
                 'nom' => $user->getNom(),
                 'prenoms' => $user->getPrenoms(),
-                'photo' => $user->getPhoto() ? $this->photoUploadService->getPublicUrl($user->getPhoto()) : null,
+                'photo' => $user->getPhoto(),
                 'dateNaissance' => $user->getDateNaissance()?->format('Y-m-d'),
                 'devise' => [
                     'id' => $user->getDevise()?->getId(),
@@ -104,7 +104,7 @@ class ProfileController extends AbstractController
                 'email' => $user->getEmail(),
                 'nom' => $user->getNom(),
                 'prenoms' => $user->getPrenoms(),
-                'photo' => $user->getPhoto() ? $this->photoUploadService->getPublicUrl($user->getPhoto()) : null,
+                'photo' => $user->getPhoto(),
                 'dateNaissance' => $user->getDateNaissance()?->format('Y-m-d'),
                 'devise' => [
                     'id' => $user->getDevise()?->getId(),
