@@ -8,9 +8,11 @@
         "ext-ctype": "*",
         "ext-iconv": "*",
         "beberlei/doctrineextensions": "^1.5",
+        "dompdf/dompdf": "^3.1",
         "kreait/firebase-php": "^7.21",
         "lexik/jwt-authentication-bundle": "^3.1",
         "nelmio/cors-bundle": "^2.5",
+        "phpoffice/phpspreadsheet": "^5.1",
         "symfony/apache-pack": "*",
         "symfony/console": "7.3.*",
         "symfony/dotenv": "7.3.*",
@@ -20,7 +22,10 @@
         "symfony/mime": "7.3.*",
         "symfony/runtime": "7.3.*",
         "symfony/security-bundle": "7.3.*",
-        "symfony/yaml": "7.3.*"
+        "symfony/twig-bundle": "7.3.*",
+        "symfony/yaml": "7.3.*",
+        "twig/extra-bundle": "^2.12|^3.0",
+        "twig/twig": "^2.12|^3.0"
     },
     "require-dev": {
         "doctrine/dbal": "^3",

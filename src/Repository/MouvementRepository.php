@@ -35,6 +35,53 @@ class MouvementRepository extends ServiceEntityRepository
     }
 
     /**
+     * Récupère les mouvements d'un compte dans une période donnée
+     */
+    public function findByCompteAndDateRange($compte, ?\DateTime $dateDebut = null, ?\DateTime $dateFin = null): array
+    {
+        $qb = $this->createQueryBuilder('m')
+            ->where('m.compte = :compte')
+            ->setParameter('compte', $compte)
+            ->orderBy('m.date', 'DESC');
+
+        if ($dateDebut) {
+            $qb->andWhere('m.date >= :dateDebut')
+                ->setParameter('dateDebut', $dateDebut);
+        }
+
+        if ($dateFin) {
+            $qb->andWhere('m.date <= :dateFin')
+                ->setParameter('dateFin', $dateFin);
+        }
+
+        return $qb->getQuery()->getResult();
+    }
+
+    /**
+     * Récupère les mouvements d'un utilisateur dans une période donnée
+     */
+    public function findByUserAndDateRange($user, ?\DateTime $dateDebut = null, ?\DateTime $dateFin = null): array
+    {
+        $qb = $this->createQueryBuilder('m')
+            ->join('m.compte', 'c')
+            ->where('c.user = :user')
+            ->setParameter('user', $user)
+            ->orderBy('m.date', 'DESC');
+
+        if ($dateDebut) {
+            $qb->andWhere('m.date >= :dateDebut')
+                ->setParameter('dateDebut', $dateDebut);
+        }
+
+        if ($dateFin) {
+            $qb->andWhere('m.date <= :dateFin')
+                ->setParameter('dateFin', $dateFin);
+        }
+
+        return $qb->getQuery()->getResult();
+    }
+
+    /**
      * @return Mouvement[] Returns an array of Mouvement objects
      */
     public function findByUser($user): array

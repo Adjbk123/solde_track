@@ -486,4 +486,85 @@ class AuthController extends AbstractController
             'message' => 'Mot de passe réinitialisé avec succès'
         ]);
     }
+
+    #[Route('/delete-account', name: 'delete_account', methods: ['DELETE'])]
+    public function deleteAccount(Request $request): JsonResponse
+    {
+        $user = $this->getUser();
+        if (!$user instanceof User) {
+            return new JsonResponse(['error' => 'Non authentifié'], Response::HTTP_UNAUTHORIZED);
+        }
+
+        $data = json_decode($request->getContent(), true);
+        $password = $data['password'] ?? null;
+
+        if (!$password) {
+            return new JsonResponse([
+                'error' => 'Mot de passe requis',
+                'message' => 'Veuillez confirmer votre mot de passe pour supprimer votre compte'
+            ], Response::HTTP_BAD_REQUEST);
+        }
+
+        // Vérifier le mot de passe
+        if (!$this->passwordHasher->isPasswordValid($user, $password)) {
+            return new JsonResponse([
+                'error' => 'Mot de passe incorrect',
+                'message' => 'Le mot de passe fourni est incorrect'
+            ], Response::HTTP_UNAUTHORIZED);
+        }
+
+        try {
+            // Supprimer la photo de profil si elle existe
+            if ($user->getPhoto()) {
+                $this->photoUploadService->delete($user->getPhoto());
+            }
+
+            // Supprimer tous les mouvements de l'utilisateur
+            $mouvements = $this->entityManager->getRepository(\App\Entity\Mouvement::class)
+                ->findBy(['user' => $user]);
+            
+            foreach ($mouvements as $mouvement) {
+                $this->entityManager->remove($mouvement);
+            }
+
+            // Supprimer tous les comptes de l'utilisateur
+            $comptes = $this->entityManager->getRepository(\App\Entity\Compte::class)
+                ->findBy(['user' => $user]);
+            
+            foreach ($comptes as $compte) {
+                $this->entityManager->remove($compte);
+            }
+
+            // Supprimer tous les contacts de l'utilisateur
+            $contacts = $this->entityManager->getRepository(\App\Entity\Contact::class)
+                ->findBy(['user' => $user]);
+            
+            foreach ($contacts as $contact) {
+                $this->entityManager->remove($contact);
+            }
+
+            // Supprimer tous les projets de l'utilisateur
+            $projets = $this->entityManager->getRepository(\App\Entity\Projet::class)
+                ->findBy(['user' => $user]);
+            
+            foreach ($projets as $projet) {
+                $this->entityManager->remove($projet);
+            }
+
+            // Supprimer l'utilisateur
+            $this->entityManager->remove($user);
+            $this->entityManager->flush();
+
+            return new JsonResponse([
+                'message' => 'Compte supprimé avec succès',
+                'success' => true
+            ]);
+
+        } catch (\Exception $e) {
+            return new JsonResponse([
+                'error' => 'Erreur lors de la suppression',
+                'message' => 'Une erreur est survenue lors de la suppression de votre compte'
+            ], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
 }
