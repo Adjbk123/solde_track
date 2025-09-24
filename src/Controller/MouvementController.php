@@ -13,6 +13,7 @@ use App\Entity\Contact;
 use App\Entity\User;
 use App\Entity\Compte;
 use App\Service\UserDeviseService;
+use App\Service\MouvementService;
 use App\Service\NotificationService;
 use App\Service\PushNotificationService;
 use App\Service\DebtManagementService;
@@ -31,6 +32,7 @@ class MouvementController extends AbstractController
         private EntityManagerInterface $entityManager,
         private ValidatorInterface $validator,
         private UserDeviseService $userDeviseService,
+        private MouvementService $mouvementService,
         private NotificationService $notificationService,
         private PushNotificationService $pushNotificationService,
         private DebtManagementService $debtManagementService
@@ -47,6 +49,7 @@ class MouvementController extends AbstractController
         $type = $request->query->get('type');
         $projetId = $request->query->get('projet_id');
         $categorieId = $request->query->get('categorie_id');
+        $compteId = $request->query->get('compte_id');
         $statut = $request->query->get('statut');
         $page = (int) $request->query->get('page', 1);
         $limit = (int) $request->query->get('limit', 20);
@@ -65,6 +68,9 @@ class MouvementController extends AbstractController
         }
         if ($categorieId) {
             $qb->andWhere('m.categorie = :categorie')->setParameter('categorie', $categorieId);
+        }
+        if ($compteId) {
+            $qb->andWhere('m.compte = :compte')->setParameter('compte', $compteId);
         }
         if ($statut) {
             $qb->andWhere('m.statut = :statut')->setParameter('statut', $statut);
@@ -88,6 +94,64 @@ class MouvementController extends AbstractController
                 'total' => count($data)
             ]
         ]);
+    }
+
+    /**
+     * Récupérer les mouvements d'un compte spécifique
+     */
+    #[Route('/compte/{compteId}', name: 'by_compte', methods: ['GET'])]
+    public function getMouvementsByCompte(int $compteId, Request $request): JsonResponse
+    {
+        $user = $this->getUser();
+        if (!$user instanceof User) {
+            return new JsonResponse(['error' => 'Non authentifié'], Response::HTTP_UNAUTHORIZED);
+        }
+
+        try {
+            $type = $request->query->get('type');
+            $page = (int) $request->query->get('page', 1);
+            $limit = (int) $request->query->get('limit', 20);
+
+            $result = $this->mouvementService->getMouvementsByCompte($user, $compteId, $type, $page, $limit);
+
+            $data = [];
+            foreach ($result['mouvements'] as $mouvement) {
+                $data[] = $this->serializeMouvement($mouvement, $user);
+            }
+
+            return new JsonResponse([
+                'mouvements' => $data,
+                'compte' => $result['compte'],
+                'pagination' => $result['pagination']
+            ]);
+
+        } catch (\InvalidArgumentException $e) {
+            return new JsonResponse(['error' => $e->getMessage()], Response::HTTP_NOT_FOUND);
+        }
+    }
+
+    /**
+     * Récupérer les statistiques des mouvements d'un compte
+     */
+    #[Route('/compte/{compteId}/statistiques', name: 'statistiques_by_compte', methods: ['GET'])]
+    public function getStatistiquesByCompte(int $compteId, Request $request): JsonResponse
+    {
+        $user = $this->getUser();
+        if (!$user instanceof User) {
+            return new JsonResponse(['error' => 'Non authentifié'], Response::HTTP_UNAUTHORIZED);
+        }
+
+        try {
+            $debut = $request->query->get('debut') ? new \DateTime($request->query->get('debut')) : null;
+            $fin = $request->query->get('fin') ? new \DateTime($request->query->get('fin')) : null;
+
+            $statistiques = $this->mouvementService->getStatistiquesByCompte($user, $compteId, $debut, $fin);
+
+            return new JsonResponse($statistiques);
+
+        } catch (\InvalidArgumentException $e) {
+            return new JsonResponse(['error' => $e->getMessage()], Response::HTTP_NOT_FOUND);
+        }
     }
 
     #[Route('/sorties', name: 'create_sortie', methods: ['POST'])]
