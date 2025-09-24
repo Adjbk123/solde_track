@@ -1,0 +1,22 @@
+{
+  "contacts": [
+    {
+      "nom": "Contact Manuel (FR)",
+      "telephone": "+225111111111",
+      "email": "manuel@test.com",
+      "source": "manuel"
+    },
+    {
+      "nom": "Contact Manual (EN)",
+      "telephone": "+225222222222",
+      "email": "manual@test.com", 
+      "source": "manual"
+    },
+    {
+      "nom": "Contact Import",
+      "telephone": "+225333333333",
+      "email": "import@test.com",
+      "source": "import_telephone"
+    }
+  ]
+}

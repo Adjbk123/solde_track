@@ -289,8 +289,8 @@ class Compte
             if (in_array($mouvement->getType(), [Mouvement::TYPE_ENTREE, Mouvement::TYPE_DETTE_A_RECEVOIR])) {
                 $solde += $montant;
             }
-            // Les dépenses, dettes à payer et dons diminuent le solde
-            elseif (in_array($mouvement->getType(), [Mouvement::TYPE_DEPENSE, Mouvement::TYPE_DETTE_A_PAYER, Mouvement::TYPE_DON])) {
+            // Les dépenses et dettes à payer diminuent le solde
+            elseif (in_array($mouvement->getType(), [Mouvement::TYPE_DEPENSE, Mouvement::TYPE_DETTE_A_PAYER])) {
                 $solde -= $montant;
             }
         }

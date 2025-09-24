@@ -8,6 +8,7 @@ use App\Entity\User;
 use App\Entity\Compte;
 use App\Entity\Transfert;
 use App\Service\UserDeviseService;
+use App\Service\StatisticsService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -20,7 +21,8 @@ class DashboardController extends AbstractController
 {
     public function __construct(
         private EntityManagerInterface $entityManager,
-        private UserDeviseService $userDeviseService
+        private UserDeviseService $userDeviseService,
+        private StatisticsService $statisticsService
     ) {}
 
     #[Route('/solde', name: 'solde', methods: ['GET'])]
@@ -417,29 +419,31 @@ class DashboardController extends AbstractController
 
         $mouvements = $qb->getQuery()->getResult();
 
-        $stats = [
-            'depense' => ['count' => 0, 'total' => 0],
-            'entree' => ['count' => 0, 'total' => 0],
-            'dette' => ['count' => 0, 'total' => 0],
-            'don' => ['count' => 0, 'total' => 0]
-        ];
+        // Utiliser le nouveau service de statistiques
+        $statistics = $this->statisticsService->calculateGlobalStatistics($user, new \DateTime($debut), new \DateTime($fin));
+        $statisticsByType = $this->statisticsService->calculateStatisticsByMovementType($user, new \DateTime($debut), new \DateTime($fin));
 
+        // Compter les mouvements par type
+        $counts = [];
         foreach ($mouvements as $mouvement) {
             $type = $mouvement->getType();
-            $montant = (float) $mouvement->getMontantEffectif();
-            
-            if (isset($stats[$type])) {
-                $stats[$type]['count']++;
-                $stats[$type]['total'] += $montant;
+            if (!isset($counts[$type])) {
+                $counts[$type] = 0;
             }
+            $counts[$type]++;
         }
 
-        // Formater les totaux
-        foreach ($stats as $type => &$stat) {
-            $stat['totalFormatted'] = $this->userDeviseService->formatAmount($user, $stat['total']);
+        // Construire les statistiques finales
+        $stats = [];
+        foreach ($statisticsByType as $type => $data) {
+            $stats[$type] = [
+                'count' => $counts[$type] ?? 0,
+                'total' => $data['total'],
+                'totalFormatted' => $this->userDeviseService->formatAmount($user, $data['total'])
+            ];
         }
 
-        $soldeNet = $stats['entree']['total'] + $stats['dette']['total'] - $stats['depense']['total'] - $stats['don']['total'];
+        $soldeNet = $statistics['solde_net'];
 
         return new JsonResponse([
             'periode' => [

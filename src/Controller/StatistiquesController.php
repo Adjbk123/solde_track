@@ -6,6 +6,7 @@ use App\Entity\User;
 use App\Entity\Mouvement;
 use App\Entity\Dette;
 use App\Service\UserDeviseService;
+use App\Service\StatisticsService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -18,7 +19,8 @@ class StatistiquesController extends AbstractController
 {
     public function __construct(
         private EntityManagerInterface $entityManager,
-        private UserDeviseService $userDeviseService
+        private UserDeviseService $userDeviseService,
+        private StatisticsService $statisticsService
     ) {}
 
     #[Route('/resume', name: 'resume', methods: ['GET'])]
@@ -29,50 +31,41 @@ class StatistiquesController extends AbstractController
             return new JsonResponse(['error' => 'Non authentifié'], Response::HTTP_UNAUTHORIZED);
         }
 
-        $periode = $request->query->get('periode', 'semaine'); // semaine, mois, trimestre
+        $periode = $request->query->get('periode', 'semaine');
         $debut = $this->getDateDebut($periode);
         $fin = new \DateTime();
 
-        $mouvementRepo = $this->entityManager->getRepository(Mouvement::class);
-
-        // Calculer les statistiques
-        $entrees = $mouvementRepo->getTotalByType($user, Mouvement::TYPE_ENTREE, $debut, $fin);
-        $depenses = $mouvementRepo->getTotalByType($user, Mouvement::TYPE_DEPENSE, $debut, $fin);
-        $dettesAPayer = $mouvementRepo->getTotalByType($user, Mouvement::TYPE_DETTE_A_PAYER, $debut, $fin);
-        $dettesARecevoir = $mouvementRepo->getTotalByType($user, Mouvement::TYPE_DETTE_A_RECEVOIR, $debut, $fin);
-        $dons = $mouvementRepo->getTotalByType($user, Mouvement::TYPE_DON, $debut, $fin);
-
-        $soldeTotal = $entrees + $dettesARecevoir - $depenses - $dettesAPayer - $dons;
-
-        // Calculer les pourcentages de variation (comparaison avec période précédente)
-        $periodePrecedente = $this->getPeriodePrecedente($periode);
-        $entreesPrecedentes = $mouvementRepo->getTotalByType($user, Mouvement::TYPE_ENTREE, $periodePrecedente['debut'], $periodePrecedente['fin']);
-        $depensesPrecedentes = $mouvementRepo->getTotalByType($user, Mouvement::TYPE_DEPENSE, $periodePrecedente['debut'], $periodePrecedente['fin']);
-
-        $variationEntrees = $this->calculerVariation($entrees, $entreesPrecedentes);
-        $variationDepenses = $this->calculerVariation($depenses, $depensesPrecedentes);
+        // Utiliser le nouveau service de statistiques
+        $statistics = $this->statisticsService->calculateGlobalStatistics($user, $debut, $fin);
+        $variations = $this->statisticsService->calculateVariations($user, $periode);
 
         return new JsonResponse([
             'periode' => $periode,
             'entrees' => [
-                'montant' => number_format($entrees, 2, '.', ''),
-                'montantFormatted' => $this->userDeviseService->formatAmount($user, $entrees),
-                'variation' => $variationEntrees,
-                'variationFormatted' => ($variationEntrees >= 0 ? '+' : '') . number_format($variationEntrees, 1) . '%'
+                'montant' => number_format($statistics['entrees']['total'], 2, '.', ''),
+                'montantFormatted' => $this->userDeviseService->formatAmount($user, $statistics['entrees']['total']),
+                'variation' => $variations['entrees']['pourcentage'],
+                'variationFormatted' => ($variations['entrees']['pourcentage'] >= 0 ? '+' : '') . number_format($variations['entrees']['pourcentage'], 1) . '%'
             ],
-            'depenses' => [
-                'montant' => number_format($depenses, 2, '.', ''),
-                'montantFormatted' => $this->userDeviseService->formatAmount($user, $depenses),
-                'variation' => $variationDepenses,
-                'variationFormatted' => ($variationDepenses >= 0 ? '+' : '') . number_format($variationDepenses, 1) . '%'
+            'sorties' => [
+                'montant' => number_format($statistics['sorties']['total'], 2, '.', ''),
+                'montantFormatted' => $this->userDeviseService->formatAmount($user, $statistics['sorties']['total']),
+                'variation' => $variations['sorties']['pourcentage'],
+                'variationFormatted' => ($variations['sorties']['pourcentage'] >= 0 ? '+' : '') . number_format($variations['sorties']['pourcentage'], 1) . '%'
             ],
             'soldeTotal' => [
-                'montant' => number_format($soldeTotal, 2, '.', ''),
-                'montantFormatted' => $this->userDeviseService->formatAmount($user, $soldeTotal)
+                'montant' => number_format($statistics['solde_net'], 2, '.', ''),
+                'montantFormatted' => $this->userDeviseService->formatAmount($user, $statistics['solde_net'])
             ],
-            'ceMois' => [
-                'montant' => number_format($this->getTotalMois($user), 2, '.', ''),
-                'montantFormatted' => $this->userDeviseService->formatAmount($user, $this->getTotalMois($user))
+            'detail' => [
+                'entrees' => [
+                    'entrees_normales' => number_format($statistics['entrees']['detail']['entrees'], 2, '.', ''),
+                    'dettes_a_recevoir' => number_format($statistics['entrees']['detail']['dettes_a_recevoir'], 2, '.', '')
+                ],
+                'sorties' => [
+                    'depenses' => number_format($statistics['sorties']['detail']['depenses'], 2, '.', ''),
+                    'dettes_a_payer' => number_format($statistics['sorties']['detail']['dettes_a_payer'], 2, '.', '')
+                ]
             ]
         ]);
     }
@@ -182,15 +175,12 @@ class StatistiquesController extends AbstractController
 
         $periode = $request->query->get('periode', 'mois');
         
-        // Période actuelle
+        // Utiliser le nouveau service de statistiques
         $actuelle = $this->getPeriodeActuelle($periode);
-        $actuelle['entrees'] = $this->entityManager->getRepository(Mouvement::class)->getTotalByType($user, Mouvement::TYPE_ENTREE, $actuelle['debut'], $actuelle['fin']);
-        $actuelle['depenses'] = $this->entityManager->getRepository(Mouvement::class)->getTotalByType($user, Mouvement::TYPE_DEPENSE, $actuelle['debut'], $actuelle['fin']);
+        $actuelleStats = $this->statisticsService->calculateGlobalStatistics($user, $actuelle['debut'], $actuelle['fin']);
         
-        // Période précédente
         $precedente = $this->getPeriodePrecedente($periode);
-        $precedente['entrees'] = $this->entityManager->getRepository(Mouvement::class)->getTotalByType($user, Mouvement::TYPE_ENTREE, $precedente['debut'], $precedente['fin']);
-        $precedente['depenses'] = $this->entityManager->getRepository(Mouvement::class)->getTotalByType($user, Mouvement::TYPE_DEPENSE, $precedente['debut'], $precedente['fin']);
+        $precedenteStats = $this->statisticsService->calculateGlobalStatistics($user, $precedente['debut'], $precedente['fin']);
 
         return new JsonResponse([
             'periode' => $periode,
@@ -198,29 +188,38 @@ class StatistiquesController extends AbstractController
                 'debut' => $actuelle['debut']->format('Y-m-d'),
                 'fin' => $actuelle['fin']->format('Y-m-d'),
                 'entrees' => [
-                    'montant' => number_format($actuelle['entrees'], 2, '.', ''),
-                    'montantFormatted' => $this->userDeviseService->formatAmount($user, $actuelle['entrees'])
+                    'montant' => number_format($actuelleStats['entrees']['total'], 2, '.', ''),
+                    'montantFormatted' => $this->userDeviseService->formatAmount($user, $actuelleStats['entrees']['total'])
                 ],
-                'depenses' => [
-                    'montant' => number_format($actuelle['depenses'], 2, '.', ''),
-                    'montantFormatted' => $this->userDeviseService->formatAmount($user, $actuelle['depenses'])
+                'sorties' => [
+                    'montant' => number_format($actuelleStats['sorties']['total'], 2, '.', ''),
+                    'montantFormatted' => $this->userDeviseService->formatAmount($user, $actuelleStats['sorties']['total'])
+                ],
+                'solde' => [
+                    'montant' => number_format($actuelleStats['solde_net'], 2, '.', ''),
+                    'montantFormatted' => $this->userDeviseService->formatAmount($user, $actuelleStats['solde_net'])
                 ]
             ],
             'precedente' => [
                 'debut' => $precedente['debut']->format('Y-m-d'),
                 'fin' => $precedente['fin']->format('Y-m-d'),
                 'entrees' => [
-                    'montant' => number_format($precedente['entrees'], 2, '.', ''),
-                    'montantFormatted' => $this->userDeviseService->formatAmount($user, $precedente['entrees'])
+                    'montant' => number_format($precedenteStats['entrees']['total'], 2, '.', ''),
+                    'montantFormatted' => $this->userDeviseService->formatAmount($user, $precedenteStats['entrees']['total'])
                 ],
-                'depenses' => [
-                    'montant' => number_format($precedente['depenses'], 2, '.', ''),
-                    'montantFormatted' => $this->userDeviseService->formatAmount($user, $precedente['depenses'])
+                'sorties' => [
+                    'montant' => number_format($precedenteStats['sorties']['total'], 2, '.', ''),
+                    'montantFormatted' => $this->userDeviseService->formatAmount($user, $precedenteStats['sorties']['total'])
+                ],
+                'solde' => [
+                    'montant' => number_format($precedenteStats['solde_net'], 2, '.', ''),
+                    'montantFormatted' => $this->userDeviseService->formatAmount($user, $precedenteStats['solde_net'])
                 ]
             ],
             'variations' => [
-                'entrees' => $this->calculerVariation($actuelle['entrees'], $precedente['entrees']),
-                'depenses' => $this->calculerVariation($actuelle['depenses'], $precedente['depenses'])
+                'entrees' => $this->calculerVariation($actuelleStats['entrees']['total'], $precedenteStats['entrees']['total']),
+                'sorties' => $this->calculerVariation($actuelleStats['sorties']['total'], $precedenteStats['sorties']['total']),
+                'solde' => $this->calculerVariation($actuelleStats['solde_net'], $precedenteStats['solde_net'])
             ]
         ]);
     }
@@ -236,19 +235,8 @@ class StatistiquesController extends AbstractController
         $periode = $request->query->get('periode', 'mois');
         $nbPeriodes = (int) $request->query->get('nb_periodes', 6);
 
-        $tendances = [];
-        for ($i = $nbPeriodes - 1; $i >= 0; $i--) {
-            $periodeData = $this->getPeriodeOffset($periode, $i);
-            $entrees = $this->entityManager->getRepository(Mouvement::class)->getTotalByType($user, Mouvement::TYPE_ENTREE, $periodeData['debut'], $periodeData['fin']);
-            $depenses = $this->entityManager->getRepository(Mouvement::class)->getTotalByType($user, Mouvement::TYPE_DEPENSE, $periodeData['debut'], $periodeData['fin']);
-            
-            $tendances[] = [
-                'periode' => $periodeData['debut']->format('Y-m-d') . ' / ' . $periodeData['fin']->format('Y-m-d'),
-                'entrees' => number_format($entrees, 2, '.', ''),
-                'depenses' => number_format($depenses, 2, '.', ''),
-                'solde' => number_format($entrees - $depenses, 2, '.', '')
-            ];
-        }
+        // Utiliser le nouveau service de statistiques
+        $tendances = $this->statisticsService->calculateTrends($user, $periode, $nbPeriodes);
 
         return new JsonResponse([
             'periode' => $periode,
@@ -280,6 +268,109 @@ class StatistiquesController extends AbstractController
 
         return new JsonResponse([
             'categories' => $categoriesData
+        ]);
+    }
+
+    /**
+     * Obtenir les entrées pour une période donnée
+     */
+    #[Route('/entrees', name: 'entrees', methods: ['GET'])]
+    public function getEntreesByPeriod(Request $request): JsonResponse
+    {
+        $user = $this->getUser();
+        if (!$user instanceof User) {
+            return new JsonResponse(['error' => 'Non authentifié'], Response::HTTP_UNAUTHORIZED);
+        }
+
+        $debut = $request->query->get('debut');
+        $fin = $request->query->get('fin');
+
+        if (!$debut || !$fin) {
+            return new JsonResponse(['error' => 'Paramètres debut et fin requis'], Response::HTTP_BAD_REQUEST);
+        }
+
+        try {
+            $dateDebut = new \DateTime($debut);
+            $dateFin = new \DateTime($fin);
+        } catch (\Exception $e) {
+            return new JsonResponse(['error' => 'Format de date invalide'], Response::HTTP_BAD_REQUEST);
+        }
+
+        $entrees = $this->statisticsService->getEntreesByPeriod($user, $dateDebut, $dateFin);
+
+        return new JsonResponse([
+            'entrees' => $entrees,
+            'devise' => $user->getDevise() ? $user->getDevise()->getCode() : 'XOF'
+        ]);
+    }
+
+    /**
+     * Obtenir les sorties pour une période donnée
+     */
+    #[Route('/sorties', name: 'sorties', methods: ['GET'])]
+    public function getSortiesByPeriod(Request $request): JsonResponse
+    {
+        $user = $this->getUser();
+        if (!$user instanceof User) {
+            return new JsonResponse(['error' => 'Non authentifié'], Response::HTTP_UNAUTHORIZED);
+        }
+
+        $debut = $request->query->get('debut');
+        $fin = $request->query->get('fin');
+
+        if (!$debut || !$fin) {
+            return new JsonResponse(['error' => 'Paramètres debut et fin requis'], Response::HTTP_BAD_REQUEST);
+        }
+
+        try {
+            $dateDebut = new \DateTime($debut);
+            $dateFin = new \DateTime($fin);
+        } catch (\Exception $e) {
+            return new JsonResponse(['error' => 'Format de date invalide'], Response::HTTP_BAD_REQUEST);
+        }
+
+        $sorties = $this->statisticsService->getSortiesByPeriod($user, $dateDebut, $dateFin);
+
+        return new JsonResponse([
+            'sorties' => $sorties,
+            'devise' => $user->getDevise() ? $user->getDevise()->getCode() : 'XOF'
+        ]);
+    }
+
+    /**
+     * Obtenir les entrées et sorties pour une période donnée
+     */
+    #[Route('/entrees-sorties', name: 'entrees_sorties', methods: ['GET'])]
+    public function getEntreesSortiesByPeriod(Request $request): JsonResponse
+    {
+        $user = $this->getUser();
+        if (!$user instanceof User) {
+            return new JsonResponse(['error' => 'Non authentifié'], Response::HTTP_UNAUTHORIZED);
+        }
+
+        $debut = $request->query->get('debut');
+        $fin = $request->query->get('fin');
+
+        if (!$debut || !$fin) {
+            return new JsonResponse(['error' => 'Paramètres debut et fin requis'], Response::HTTP_BAD_REQUEST);
+        }
+
+        try {
+            $dateDebut = new \DateTime($debut);
+            $dateFin = new \DateTime($fin);
+        } catch (\Exception $e) {
+            return new JsonResponse(['error' => 'Format de date invalide'], Response::HTTP_BAD_REQUEST);
+        }
+
+        $resultat = $this->statisticsService->getEntreesSortiesByPeriod($user, $dateDebut, $dateFin);
+
+        return new JsonResponse([
+            'periode' => $resultat['periode'],
+            'entrees' => $resultat['entrees'],
+            'sorties' => $resultat['sorties'],
+            'solde_net' => $resultat['solde_net'],
+            'solde_net_formatted' => $resultat['solde_net_formatted'],
+            'devise' => $user->getDevise() ? $user->getDevise()->getCode() : 'XOF'
         ]);
     }
 
@@ -415,11 +506,10 @@ class StatistiquesController extends AbstractController
         $debut = new \DateTime('first day of this month');
         $fin = new \DateTime('last day of this month');
         
-        $mouvementRepo = $this->entityManager->getRepository(Mouvement::class);
-        $entrees = $mouvementRepo->getTotalByType($user, Mouvement::TYPE_ENTREE, $debut, $fin);
-        $depenses = $mouvementRepo->getTotalByType($user, Mouvement::TYPE_DEPENSE, $debut, $fin);
+        // Utiliser le nouveau service de statistiques
+        $statistics = $this->statisticsService->calculateGlobalStatistics($user, $debut, $fin);
         
-        return $entrees - $depenses;
+        return $statistics['solde_net'];
     }
 
     private function getDonneesEvolution(User $user, string $periode, string $type): array

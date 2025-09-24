@@ -12,16 +12,12 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Table(name: 'categorie')]
 class Categorie
 {
-    public const TYPE_DEPENSE = 'depense';
     public const TYPE_ENTREE = 'entree';
-    public const TYPE_DETTE = 'dette';
-    public const TYPE_DON = 'don';
+    public const TYPE_SORTIE = 'sortie';
 
     public const TYPES = [
-        self::TYPE_DEPENSE => 'Dépense',
         self::TYPE_ENTREE => 'Entrée',
-        self::TYPE_DETTE => 'Dette',
-        self::TYPE_DON => 'Don',
+        self::TYPE_SORTIE => 'Sortie',
     ];
 
     #[ORM\Id]

@@ -15,6 +15,7 @@ use App\Entity\Compte;
 use App\Service\UserDeviseService;
 use App\Service\NotificationService;
 use App\Service\PushNotificationService;
+use App\Service\DebtManagementService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -31,7 +32,8 @@ class MouvementController extends AbstractController
         private ValidatorInterface $validator,
         private UserDeviseService $userDeviseService,
         private NotificationService $notificationService,
-        private PushNotificationService $pushNotificationService
+        private PushNotificationService $pushNotificationService,
+        private DebtManagementService $debtManagementService
     ) {}
 
     #[Route('', name: 'list', methods: ['GET'])]
@@ -1102,6 +1104,65 @@ class MouvementController extends AbstractController
             'total_count' => count($entrees),
             'total_amount' => $totalEntrees,
             'total_amount_formatted' => number_format($totalEntrees) . ' ' . ($user->getDevise() ? $user->getDevise()->getCode() : 'XOF')
+        ]);
+    }
+
+    /**
+     * Gestion des dettes - obtenir les catégories compatibles
+     */
+    #[Route('/debt-categories/{movementType}', name: 'debt_categories', methods: ['GET'])]
+    public function getDebtCategories(string $movementType): JsonResponse
+    {
+        $user = $this->getUser();
+        if (!$user instanceof User) {
+            return new JsonResponse(['error' => 'Non authentifié'], Response::HTTP_UNAUTHORIZED);
+        }
+
+        // Valider le type de mouvement
+        if (!in_array($movementType, [Mouvement::TYPE_DETTE_A_PAYER, Mouvement::TYPE_DETTE_A_RECEVOIR])) {
+            return new JsonResponse(['error' => 'Type de mouvement de dette invalide'], Response::HTTP_BAD_REQUEST);
+        }
+
+        $categories = $this->debtManagementService->getCompatibleCategoriesForDebtMovement($user, $movementType);
+        $suggestedCategories = $this->debtManagementService->getSuggestedCategoriesForDebtMovement($movementType);
+
+        $data = [];
+        foreach ($categories as $categorie) {
+            $data[] = [
+                'id' => $categorie->getId(),
+                'nom' => $categorie->getNom(),
+                'type' => $categorie->getType(),
+                'typeLabel' => $categorie->getTypeLabel(),
+                'nombreMouvements' => $categorie->getMouvements()->count()
+            ];
+        }
+
+        return new JsonResponse([
+            'movementType' => $movementType,
+            'categories' => $data,
+            'suggestedCategories' => $suggestedCategories
+        ]);
+    }
+
+    /**
+     * Obtenir le solde des dettes
+     */
+    #[Route('/debt-balance', name: 'debt_balance', methods: ['GET'])]
+    public function getDebtBalance(): JsonResponse
+    {
+        $user = $this->getUser();
+        if (!$user instanceof User) {
+            return new JsonResponse(['error' => 'Non authentifié'], Response::HTTP_UNAUTHORIZED);
+        }
+
+        $balance = $this->debtManagementService->calculateDebtBalance($user);
+        
+        return new JsonResponse([
+            'dettes_a_payer' => number_format($balance['dettes_a_payer'], 2, '.', ''),
+            'dettes_a_recevoir' => number_format($balance['dettes_a_recevoir'], 2, '.', ''),
+            'solde_dettes' => number_format($balance['solde_dettes'], 2, '.', ''),
+            'net_positive' => $balance['net_positive'],
+            'devise' => $user->getDevise() ? $user->getDevise()->getCode() : 'XOF'
         ]);
     }
 
