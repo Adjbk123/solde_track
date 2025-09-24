@@ -344,24 +344,28 @@ class StatisticsService
     private function getPeriodePrecedente(string $periode): array
     {
         $fin = new \DateTime();
-        $fin->modify("-1 {$periode}");
+        $debut = new \DateTime();
         
-        $debut = clone $fin;
         switch ($periode) {
             case 'semaine':
-                $debut->modify('-1 week');
+                $fin->modify('-1 week');
+                $debut->modify('-2 weeks');
                 break;
             case 'mois':
-                $debut->modify('-1 month');
+                $fin->modify('-1 month');
+                $debut->modify('-2 months');
                 break;
             case 'trimestre':
-                $debut->modify('-3 months');
+                $fin->modify('-3 months');
+                $debut->modify('-6 months');
                 break;
             case 'annee':
-                $debut->modify('-1 year');
+                $fin->modify('-1 year');
+                $debut->modify('-2 years');
                 break;
             default:
-                $debut->modify('-1 month');
+                $fin->modify('-1 week');
+                $debut->modify('-2 weeks');
         }
         
         return ['debut' => $debut, 'fin' => $fin];
