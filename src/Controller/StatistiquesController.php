@@ -63,16 +63,15 @@ class StatistiquesController extends AbstractController
                     'dettes_a_recevoir' => number_format($statistics['entrees']['detail']['dettes_a_recevoir'] ?? 0, 2, '.', '')
                 ],
                 'sorties' => [
-                    'depenses' => number_format($statistics['sorties']['detail']['depenses'] ?? 0, 2, '.', ''),
+                    'sorties' => number_format($statistics['sorties']['detail']['sorties'] ?? 0, 2, '.', ''),
                     'dettes_a_payer' => number_format($statistics['sorties']['detail']['dettes_a_payer'] ?? 0, 2, '.', '')
                 ]
             ]
         ]);
     }
 
-    #[Route('/evolution-depenses', name: 'evolution_depenses', methods: ['GET'])]
     #[Route('/evolution-sorties', name: 'evolution_sorties', methods: ['GET'])]
-    public function getEvolutionDepenses(Request $request): JsonResponse
+    public function getEvolutionSorties(Request $request): JsonResponse
     {
         $user = $this->getUser();
         if (!$user instanceof User) {
@@ -80,12 +79,7 @@ class StatistiquesController extends AbstractController
         }
 
         $periode = $request->query->get('periode', 'semaine');
-        $type = $request->query->get('type', 'depenses'); // depenses/sorties, entrees, solde
-        
-        // Support de l'ancien terme "depenses" et du nouveau "sorties"
-        if ($type === 'sorties') {
-            $type = 'depenses';
-        }
+        $type = $request->query->get('type', 'sorties'); // sorties, entrees, solde
 
         $donnees = $this->getDonneesEvolution($user, $periode, $type);
 
@@ -97,9 +91,8 @@ class StatistiquesController extends AbstractController
         ]);
     }
 
-    #[Route('/depenses-par-categorie', name: 'depenses_par_categorie', methods: ['GET'])]
     #[Route('/sorties-par-categorie', name: 'sorties_par_categorie', methods: ['GET'])]
-    public function getDepensesParCategorie(Request $request): JsonResponse
+    public function getSortiesParCategorie(Request $request): JsonResponse
     {
         $user = $this->getUser();
         if (!$user instanceof User) {
@@ -111,13 +104,13 @@ class StatistiquesController extends AbstractController
         $fin = new \DateTime();
 
         $mouvementRepo = $this->entityManager->getRepository(Mouvement::class);
-        $depensesParCategorie = $mouvementRepo->getDepensesParCategorie($user, $debut, $fin);
+        $sortiesParCategorie = $mouvementRepo->getDepensesParCategorie($user, $debut, $fin);
 
-        $totalDepenses = array_sum(array_column($depensesParCategorie, 'montant'));
+        $totalSorties = array_sum(array_column($sortiesParCategorie, 'montant'));
 
         $categories = [];
-        foreach ($depensesParCategorie as $categorie) {
-            $pourcentage = $totalDepenses > 0 ? ($categorie['montant'] / $totalDepenses) * 100 : 0;
+        foreach ($sortiesParCategorie as $categorie) {
+            $pourcentage = $totalSorties > 0 ? ($categorie['montant'] / $totalSorties) * 100 : 0;
             $categories[] = [
                 'id' => $categorie['id'],
                 'nom' => $categorie['nom'],
@@ -129,8 +122,8 @@ class StatistiquesController extends AbstractController
 
         return new JsonResponse([
             'periode' => $periode,
-            'totalDepenses' => number_format($totalDepenses, 2, '.', ''),
-            'totalDepensesFormatted' => $this->userDeviseService->formatAmount($user, $totalDepenses),
+            'totalSorties' => number_format($totalSorties, 2, '.', ''),
+            'totalSortiesFormatted' => $this->userDeviseService->formatAmount($user, $totalSorties),
             'categories' => $categories
         ]);
     }

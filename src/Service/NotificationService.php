@@ -562,7 +562,7 @@ class NotificationService
                 ->andWhere('m.type = :type')
                 ->andWhere('DATE(m.date) = :date')
                 ->setParameter('user', $user)
-                ->setParameter('type', 'depense')
+                ->setParameter('type', 'sortie')
                 ->setParameter('date', $date->format('Y-m-d'))
                 ->getQuery()
                 ->getResult();

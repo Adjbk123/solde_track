@@ -24,11 +24,11 @@ class StatisticsService
         $dettesARecevoir = $mouvementRepo->getTotalByType($user, Mouvement::TYPE_DETTE_A_RECEVOIR, $debut, $fin);
         
         // Sorties (argent dépensé)
-        $depenses = $mouvementRepo->getTotalByType($user, Mouvement::TYPE_DEPENSE, $debut, $fin);
+        $sorties = $mouvementRepo->getTotalByType($user, Mouvement::TYPE_SORTIE, $debut, $fin);
         $dettesAPayer = $mouvementRepo->getTotalByType($user, Mouvement::TYPE_DETTE_A_PAYER, $debut, $fin);
 
         $totalEntrees = $entrees + $dettesARecevoir;
-        $totalSorties = $depenses + $dettesAPayer;
+        $totalSorties = $sorties + $dettesAPayer;
         $soldeNet = $totalEntrees - $totalSorties;
 
         return [
@@ -42,7 +42,7 @@ class StatisticsService
             'sorties' => [
                 'total' => $totalSorties,
                 'detail' => [
-                    'depenses' => $depenses,
+                    'sorties' => $sorties,
                     'dettes_a_payer' => $dettesAPayer
                 ]
             ],
@@ -63,7 +63,7 @@ class StatisticsService
         
         $types = [
             Mouvement::TYPE_ENTREE => 'Entrées',
-            Mouvement::TYPE_DEPENSE => 'Dépenses',
+            Mouvement::TYPE_SORTIE => 'Dépenses',
             Mouvement::TYPE_DETTE_A_PAYER => 'Dettes à payer',
             Mouvement::TYPE_DETTE_A_RECEVOIR => 'Dettes à recevoir'
         ];
@@ -139,12 +139,20 @@ class StatisticsService
     /**
      * Calcule le solde des dettes
      */
-    public function calculateDebtBalance(User $user): array
+    public function calculateDebtBalance(User $user, ?\DateTime $debut = null, ?\DateTime $fin = null): array
     {
         $mouvementRepo = $this->entityManager->getRepository(Mouvement::class);
         
-        $dettesAPayer = $mouvementRepo->getTotalByType($user, Mouvement::TYPE_DETTE_A_PAYER);
-        $dettesARecevoir = $mouvementRepo->getTotalByType($user, Mouvement::TYPE_DETTE_A_RECEVOIR);
+        // Si aucune période n'est spécifiée, prendre toutes les dettes
+        if ($debut === null) {
+            $debut = new \DateTime('1900-01-01');
+        }
+        if ($fin === null) {
+            $fin = new \DateTime();
+        }
+        
+        $dettesAPayer = $mouvementRepo->getTotalByType($user, Mouvement::TYPE_DETTE_A_PAYER, $debut, $fin);
+        $dettesARecevoir = $mouvementRepo->getTotalByType($user, Mouvement::TYPE_DETTE_A_RECEVOIR, $debut, $fin);
         
         return [
             'dettes_a_payer' => $dettesAPayer,
@@ -209,10 +217,10 @@ class StatisticsService
     {
         $mouvementRepo = $this->entityManager->getRepository(Mouvement::class);
         
-        $depenses = $mouvementRepo->getTotalByType($user, Mouvement::TYPE_DEPENSE, $debut, $fin);
+        $sorties = $mouvementRepo->getTotalByType($user, Mouvement::TYPE_SORTIE, $debut, $fin);
         $dettesAPayer = $mouvementRepo->getTotalByType($user, Mouvement::TYPE_DETTE_A_PAYER, $debut, $fin);
         
-        $totalSorties = $depenses + $dettesAPayer;
+        $totalSorties = $sorties + $dettesAPayer;
         
         return [
             'periode' => [
@@ -221,12 +229,12 @@ class StatisticsService
             ],
             'total' => $totalSorties,
             'detail' => [
-                'depenses' => $depenses,
+                'sorties' => $sorties,
                 'dettes_a_payer' => $dettesAPayer
             ],
             'formatted' => [
                 'total' => number_format($totalSorties, 2, '.', ''),
-                'depenses' => number_format($depenses, 2, '.', ''),
+                'sorties' => number_format($sorties, 2, '.', ''),
                 'dettes_a_payer' => number_format($dettesAPayer, 2, '.', '')
             ]
         ];

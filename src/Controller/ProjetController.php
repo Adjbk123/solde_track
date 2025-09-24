@@ -237,7 +237,7 @@ class ProjetController extends AbstractController
         foreach ($mouvements as $mouvement) {
             $montant = (float) $mouvement->getMontantEffectif();
             switch ($mouvement->getType()) {
-                case 'depense':
+                case 'sortie':
                     $totalDepenses += $montant;
                     break;
                 case 'entree':
@@ -365,7 +365,7 @@ class ProjetController extends AbstractController
 
             foreach ($mouvements as $mouvement) {
                 $montant = (float) $mouvement->getMontantEffectif();
-                if ($mouvement->getType() === 'depense') {
+                if ($mouvement->getType() === 'sortie') {
                     $totalDepenses += $montant;
                 } elseif ($mouvement->getType() === 'entree') {
                     $totalEntrees += $montant;

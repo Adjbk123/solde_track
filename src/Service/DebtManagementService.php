@@ -113,12 +113,20 @@ class DebtManagementService
     /**
      * Calcule le solde des dettes pour un utilisateur
      */
-    public function calculateDebtBalance(User $user): array
+    public function calculateDebtBalance(User $user, ?\DateTime $debut = null, ?\DateTime $fin = null): array
     {
         $mouvementRepo = $this->entityManager->getRepository(Mouvement::class);
         
-        $dettesAPayer = $mouvementRepo->getTotalByType($user, Mouvement::TYPE_DETTE_A_PAYER);
-        $dettesARecevoir = $mouvementRepo->getTotalByType($user, Mouvement::TYPE_DETTE_A_RECEVOIR);
+        // Si aucune période n'est spécifiée, prendre toutes les dettes
+        if ($debut === null) {
+            $debut = new \DateTime('1900-01-01');
+        }
+        if ($fin === null) {
+            $fin = new \DateTime();
+        }
+        
+        $dettesAPayer = $mouvementRepo->getTotalByType($user, Mouvement::TYPE_DETTE_A_PAYER, $debut, $fin);
+        $dettesARecevoir = $mouvementRepo->getTotalByType($user, Mouvement::TYPE_DETTE_A_RECEVOIR, $debut, $fin);
         
         return [
             'dettes_a_payer' => $dettesAPayer,

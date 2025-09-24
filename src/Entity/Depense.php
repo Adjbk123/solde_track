@@ -35,7 +35,7 @@ class Depense extends Mouvement
     public function __construct()
     {
         parent::__construct();
-        $this->setType(Mouvement::TYPE_DEPENSE);
+        $this->setType(Mouvement::TYPE_SORTIE);
     }
 
     // Les méthodes de Mouvement sont héritées automatiquement

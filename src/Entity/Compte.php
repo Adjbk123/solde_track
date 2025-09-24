@@ -290,7 +290,7 @@ class Compte
                 $solde += $montant;
             }
             // Les dépenses et dettes à payer diminuent le solde
-            elseif (in_array($mouvement->getType(), [Mouvement::TYPE_DEPENSE, Mouvement::TYPE_DETTE_A_PAYER])) {
+            elseif (in_array($mouvement->getType(), [Mouvement::TYPE_SORTIE, Mouvement::TYPE_DETTE_A_PAYER])) {
                 $solde -= $montant;
             }
         }

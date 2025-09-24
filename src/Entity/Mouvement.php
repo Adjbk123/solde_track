@@ -14,7 +14,7 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\DiscriminatorColumn(name: 'discr', type: 'string')]
 #[ORM\DiscriminatorMap([
     'mouvement' => Mouvement::class,
-    'depense' => Depense::class,
+    'sortie' => Depense::class,
     'entree' => Entree::class,
     'dette' => Dette::class,
     'don' => Don::class,
@@ -22,14 +22,14 @@ use Doctrine\ORM\Mapping as ORM;
 abstract class Mouvement
 {
     public const TYPE_ENTREE = 'entree';
-    public const TYPE_DEPENSE = 'depense';
+    public const TYPE_SORTIE = 'sortie';
     public const TYPE_DETTE_A_PAYER = 'dette_a_payer';
     public const TYPE_DETTE_A_RECEVOIR = 'dette_a_recevoir';
     public const TYPE_DON = 'don';
 
     public const TYPES = [
         self::TYPE_ENTREE => 'Entrée',
-        self::TYPE_DEPENSE => 'Dépense',
+        self::TYPE_SORTIE => 'Sortie',
         self::TYPE_DETTE_A_PAYER => 'Dette à payer',
         self::TYPE_DETTE_A_RECEVOIR => 'Dette à recevoir',
         self::TYPE_DON => 'Don',

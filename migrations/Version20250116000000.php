@@ -19,8 +19,10 @@ final class Version20250116000000 extends AbstractMigration
 
     public function up(Schema $schema): void
     {
-        // this up() migration is auto-generated, please modify it to your needs
-        $this->addSql('ALTER TABLE `user` ADD fcm_token VARCHAR(255) DEFAULT NULL');
+        // Vérifier si la colonne existe déjà avant de l'ajouter
+        if (!$schema->getTable('user')->hasColumn('fcm_token')) {
+            $this->addSql('ALTER TABLE `user` ADD fcm_token VARCHAR(255) DEFAULT NULL');
+        }
     }
 
     public function down(Schema $schema): void

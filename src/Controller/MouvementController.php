@@ -90,9 +90,8 @@ class MouvementController extends AbstractController
         ]);
     }
 
-    #[Route('/depenses', name: 'create_depense', methods: ['POST'])]
     #[Route('/sorties', name: 'create_sortie', methods: ['POST'])]
-    public function createDepense(Request $request): JsonResponse
+    public function createSortie(Request $request): JsonResponse
     {
         $user = $this->getUser();
         if (!$user) {
@@ -115,7 +114,7 @@ class MouvementController extends AbstractController
             return new JsonResponse(['error' => 'Catégorie non trouvée'], Response::HTTP_NOT_FOUND);
         }
 
-        // Créer la dépense
+        // Créer la sortie
         $depense = new Depense();
         $depense->setUser($user);
         $depense->setMontantTotal($data['montantTotal']);
@@ -170,16 +169,16 @@ class MouvementController extends AbstractController
         
         $this->entityManager->flush();
 
-        // Envoyer une notification de motivation si c'est la première dépense du jour
+        // Envoyer une notification de motivation si c'est la première sortie du jour
         try {
-            $this->sendMotivationIfNeeded($user, 'depense');
+            $this->sendMotivationIfNeeded($user, 'sortie');
         } catch (\Exception $e) {
             // Log l'erreur mais ne pas faire échouer la création
             error_log('Erreur notification motivation: ' . $e->getMessage());
         }
 
         return new JsonResponse([
-            'message' => 'Dépense créée avec succès',
+            'message' => 'Sortie créée avec succès',
             'mouvement' => $this->serializeMouvement($depense, $user)
         ], Response::HTTP_CREATED);
     }
@@ -314,7 +313,7 @@ class MouvementController extends AbstractController
         $totalDettes = 0;
         $totalDons = 0;
         $mouvementsParType = [
-            'depense' => 0,
+            'sortie' => 0,
             'entree' => 0,
             'dette_a_payer' => 0,
             'dette_a_recevoir' => 0,
@@ -328,7 +327,7 @@ class MouvementController extends AbstractController
             $categorieNom = $mouvement->getCategorie()->getNom();
 
             switch ($typeMouvement) {
-                case 'depense':
+                case 'sortie':
                     $totalDepenses += $montant;
                     break;
                 case 'entree':
@@ -755,7 +754,7 @@ class MouvementController extends AbstractController
                 $mouvement->setMontantEffectif($mouvement->getMontantTotal());
                 break;
             
-            case 'depense':
+            case 'sortie':
             case 'dette_a_payer':
             case 'don':
                 // Les dépenses, dettes à payer et dons diminuent le solde
@@ -814,8 +813,8 @@ class MouvementController extends AbstractController
         $type = $request->query->get('type'); // depense/sortie, entree, dette, don
         
         // Support de l'ancien terme "depense" et du nouveau "sortie"
-        if ($type === 'sortie') {
-            $type = 'depense';
+        if ($type === 'depense') {
+            $type = 'sortie';
         }
         $today = new \DateTime();
         $today->setTime(0, 0, 0);
@@ -835,7 +834,7 @@ class MouvementController extends AbstractController
         if ($type) {
             $qb->andWhere('m INSTANCE OF :type');
             $typeClass = match($type) {
-                'depense' => Depense::class,
+                'sortie' => Depense::class,
                 'entree' => Entree::class,
                 'dette' => Dette::class,
                 'don' => Don::class,
@@ -896,7 +895,7 @@ class MouvementController extends AbstractController
         if ($type) {
             $qb->andWhere('m INSTANCE OF :type');
             $typeClass = match($type) {
-                'depense' => Depense::class,
+                'sortie' => Depense::class,
                 'entree' => Entree::class,
                 'dette' => Dette::class,
                 'don' => Don::class,
@@ -955,7 +954,7 @@ class MouvementController extends AbstractController
         if ($type) {
             $qb->andWhere('m INSTANCE OF :type');
             $typeClass = match($type) {
-                'depense' => Depense::class,
+                'sortie' => Depense::class,
                 'entree' => Entree::class,
                 'dette' => Dette::class,
                 'don' => Don::class,
@@ -1015,7 +1014,7 @@ class MouvementController extends AbstractController
         if ($type) {
             $qb->andWhere('m INSTANCE OF :type');
             $typeClass = match($type) {
-                'depense' => Depense::class,
+                'sortie' => Depense::class,
                 'entree' => Entree::class,
                 'dette' => Dette::class,
                 'don' => Don::class,
@@ -1039,11 +1038,10 @@ class MouvementController extends AbstractController
     }
 
     /**
-     * Récupérer les dépenses du jour
+     * Récupérer les sorties du jour
      */
-    #[Route('/depenses/today', name: 'depenses_today', methods: ['GET'])]
     #[Route('/sorties/today', name: 'sorties_today', methods: ['GET'])]
-    public function getTodayDepenses(Request $request): JsonResponse
+    public function getTodaySorties(Request $request): JsonResponse
     {
         $user = $this->getUser();
         if (!$user instanceof User) {
@@ -1055,7 +1053,7 @@ class MouvementController extends AbstractController
         $tomorrow = clone $today;
         $tomorrow->modify('+1 day');
 
-        $depenses = $this->entityManager->getRepository(Depense::class)
+        $sorties = $this->entityManager->getRepository(Depense::class)
             ->createQueryBuilder('d')
             ->where('d.user = :user')
             ->andWhere('d.date >= :start')
@@ -1067,14 +1065,14 @@ class MouvementController extends AbstractController
             ->getQuery()
             ->getResult();
 
-        $totalDepenses = array_sum(array_map(fn($d) => (float) $d->getMontantTotal(), $depenses));
+        $totalSorties = array_sum(array_map(fn($d) => (float) $d->getMontantTotal(), $sorties));
 
         return new JsonResponse([
             'date' => $today->format('Y-m-d'),
-            'depenses' => array_map(fn($d) => $this->serializeMouvement($d, $user), $depenses),
-            'total_count' => count($depenses),
-            'total_amount' => $totalDepenses,
-            'total_amount_formatted' => number_format($totalDepenses) . ' ' . ($user->getDevise() ? $user->getDevise()->getCode() : 'XOF')
+            'sorties' => array_map(fn($d) => $this->serializeMouvement($d, $user), $sorties),
+            'total_count' => count($sorties),
+            'total_amount' => $totalSorties,
+            'total_amount_formatted' => number_format($totalSorties) . ' ' . ($user->getDevise() ? $user->getDevise()->getCode() : 'XOF')
         ]);
     }
 

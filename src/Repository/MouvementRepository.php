@@ -147,7 +147,7 @@ class MouvementRepository extends ServiceEntityRepository
             ->andWhere('m.date >= :debut')
             ->andWhere('m.date <= :fin')
             ->setParameter('user', $user)
-            ->setParameter('type', Mouvement::TYPE_DEPENSE)
+            ->setParameter('type', Mouvement::TYPE_SORTIE)
             ->setParameter('debut', $debut)
             ->setParameter('fin', $fin)
             ->groupBy('c.id, c.nom')
