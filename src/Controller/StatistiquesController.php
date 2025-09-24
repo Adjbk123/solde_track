@@ -71,6 +71,7 @@ class StatistiquesController extends AbstractController
     }
 
     #[Route('/evolution-depenses', name: 'evolution_depenses', methods: ['GET'])]
+    #[Route('/evolution-sorties', name: 'evolution_sorties', methods: ['GET'])]
     public function getEvolutionDepenses(Request $request): JsonResponse
     {
         $user = $this->getUser();
@@ -79,7 +80,12 @@ class StatistiquesController extends AbstractController
         }
 
         $periode = $request->query->get('periode', 'semaine');
-        $type = $request->query->get('type', 'depenses'); // depenses, entrees, solde
+        $type = $request->query->get('type', 'depenses'); // depenses/sorties, entrees, solde
+        
+        // Support de l'ancien terme "depenses" et du nouveau "sorties"
+        if ($type === 'sorties') {
+            $type = 'depenses';
+        }
 
         $donnees = $this->getDonneesEvolution($user, $periode, $type);
 
@@ -92,6 +98,7 @@ class StatistiquesController extends AbstractController
     }
 
     #[Route('/depenses-par-categorie', name: 'depenses_par_categorie', methods: ['GET'])]
+    #[Route('/sorties-par-categorie', name: 'sorties_par_categorie', methods: ['GET'])]
     public function getDepensesParCategorie(Request $request): JsonResponse
     {
         $user = $this->getUser();

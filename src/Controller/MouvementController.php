@@ -91,6 +91,7 @@ class MouvementController extends AbstractController
     }
 
     #[Route('/depenses', name: 'create_depense', methods: ['POST'])]
+    #[Route('/sorties', name: 'create_sortie', methods: ['POST'])]
     public function createDepense(Request $request): JsonResponse
     {
         $user = $this->getUser();
@@ -810,7 +811,12 @@ class MouvementController extends AbstractController
             return new JsonResponse(['error' => 'Non authentifié'], Response::HTTP_UNAUTHORIZED);
         }
 
-        $type = $request->query->get('type'); // depense, entree, dette, don
+        $type = $request->query->get('type'); // depense/sortie, entree, dette, don
+        
+        // Support de l'ancien terme "depense" et du nouveau "sortie"
+        if ($type === 'sortie') {
+            $type = 'depense';
+        }
         $today = new \DateTime();
         $today->setTime(0, 0, 0);
         $tomorrow = clone $today;
@@ -1036,6 +1042,7 @@ class MouvementController extends AbstractController
      * Récupérer les dépenses du jour
      */
     #[Route('/depenses/today', name: 'depenses_today', methods: ['GET'])]
+    #[Route('/sorties/today', name: 'sorties_today', methods: ['GET'])]
     public function getTodayDepenses(Request $request): JsonResponse
     {
         $user = $this->getUser();
