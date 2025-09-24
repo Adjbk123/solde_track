@@ -66,7 +66,7 @@ class PhotoController extends AbstractController
                 'message' => 'Photo uploadée avec succès',
                 'photo' => [
                     'filename' => $fileName,
-                    'url' => $this->photoUploadService->getPublicUrl($fileName)
+                    'url' => $fileName
                 ]
             ]);
 
@@ -134,7 +134,7 @@ class PhotoController extends AbstractController
             if (file_exists($filePath)) {
                 $photoInfo = [
                     'filename' => $user->getPhoto(),
-                    'url' => $this->photoUploadService->getPublicUrl($user->getPhoto()),
+                    'url' => $user->getPhoto(),
                     'size' => filesize($filePath),
                     'lastModified' => filemtime($filePath)
                 ];
@@ -182,7 +182,7 @@ class PhotoController extends AbstractController
                 'message' => 'Photo uploadée avec succès',
                 'photo' => [
                     'filename' => $fileName,
-                    'url' => $this->photoUploadService->getPublicUrl($fileName)
+                    'url' => $fileName
                 ]
             ]);
 
@@ -228,7 +228,7 @@ class PhotoController extends AbstractController
                     'message' => 'Photo base64 convertie en fichier avec succès',
                     'photo' => [
                         'filename' => $fileName,
-                        'url' => $this->photoUploadService->getPublicUrl($fileName)
+                        'url' => $fileName
                     ]
                 ]);
             } else {
@@ -236,7 +236,7 @@ class PhotoController extends AbstractController
                     'message' => 'La photo est déjà stockée comme fichier',
                     'photo' => [
                         'filename' => $user->getPhoto(),
-                        'url' => $this->photoUploadService->getPublicUrl($user->getPhoto())
+                        'url' => $user->getPhoto()
                     ]
                 ]);
             }
