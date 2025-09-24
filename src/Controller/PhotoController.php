@@ -146,4 +146,106 @@ class PhotoController extends AbstractController
             'photo' => $photoInfo
         ]);
     }
+
+    #[Route('/upload-base64', name: 'upload_base64', methods: ['POST'])]
+    public function uploadBase64(Request $request): JsonResponse
+    {
+        $user = $this->getUser();
+        if (!$user instanceof User) {
+            return new JsonResponse(['error' => 'Non authentifié'], Response::HTTP_UNAUTHORIZED);
+        }
+
+        $data = json_decode($request->getContent(), true);
+        $base64Data = $data['photo'] ?? null;
+
+        if (!$base64Data) {
+            return new JsonResponse([
+                'error' => 'Aucune image fournie',
+                'message' => 'Veuillez fournir une image en base64'
+            ], Response::HTTP_BAD_REQUEST);
+        }
+
+        try {
+            // Supprimer l'ancienne photo si elle existe
+            if ($user->getPhoto()) {
+                $this->photoUploadService->delete($user->getPhoto());
+            }
+
+            // Sauvegarder l'image base64 comme fichier
+            $fileName = $this->photoUploadService->saveBase64Image($base64Data, $user->getId());
+
+            // Mettre à jour l'utilisateur
+            $user->setPhoto($fileName);
+            $this->entityManager->flush();
+
+            return new JsonResponse([
+                'message' => 'Photo uploadée avec succès',
+                'photo' => [
+                    'filename' => $fileName,
+                    'url' => $this->photoUploadService->getPublicUrl($fileName)
+                ]
+            ]);
+
+        } catch (\InvalidArgumentException $e) {
+            return new JsonResponse([
+                'error' => 'Format d\'image invalide',
+                'message' => $e->getMessage()
+            ], Response::HTTP_BAD_REQUEST);
+        } catch (\Exception $e) {
+            return new JsonResponse([
+                'error' => 'Erreur lors de l\'upload',
+                'message' => $e->getMessage()
+            ], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    #[Route('/clean-base64', name: 'clean_base64', methods: ['POST'])]
+    public function cleanBase64Data(): JsonResponse
+    {
+        $user = $this->getUser();
+        if (!$user instanceof User) {
+            return new JsonResponse(['error' => 'Non authentifié'], Response::HTTP_UNAUTHORIZED);
+        }
+
+        if (!$user->getPhoto()) {
+            return new JsonResponse([
+                'error' => 'Aucune photo',
+                'message' => 'Aucune photo à nettoyer'
+            ], Response::HTTP_BAD_REQUEST);
+        }
+
+        try {
+            // Vérifier si la photo est stockée en base64
+            if ($this->photoUploadService->isBase64Image($user->getPhoto())) {
+                // Convertir le base64 en fichier
+                $fileName = $this->photoUploadService->saveBase64Image($user->getPhoto(), $user->getId());
+                
+                // Mettre à jour l'utilisateur avec le nom du fichier
+                $user->setPhoto($fileName);
+                $this->entityManager->flush();
+
+                return new JsonResponse([
+                    'message' => 'Photo base64 convertie en fichier avec succès',
+                    'photo' => [
+                        'filename' => $fileName,
+                        'url' => $this->photoUploadService->getPublicUrl($fileName)
+                    ]
+                ]);
+            } else {
+                return new JsonResponse([
+                    'message' => 'La photo est déjà stockée comme fichier',
+                    'photo' => [
+                        'filename' => $user->getPhoto(),
+                        'url' => $this->photoUploadService->getPublicUrl($user->getPhoto())
+                    ]
+                ]);
+            }
+
+        } catch (\Exception $e) {
+            return new JsonResponse([
+                'error' => 'Erreur lors du nettoyage',
+                'message' => $e->getMessage()
+            ], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
 }

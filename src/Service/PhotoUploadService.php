@@ -187,4 +187,64 @@ class PhotoUploadService
     {
         return $this->targetDirectory . '/' . $fileName;
     }
+
+    /**
+     * Sauvegarde une image base64 comme fichier
+     */
+    public function saveBase64Image(string $base64Data, int $userId): string
+    {
+        // Vérifier si c'est une image base64 valide
+        if (!preg_match('/^data:image\/(\w+);base64,/', $base64Data, $matches)) {
+            throw new \InvalidArgumentException('Format base64 invalide');
+        }
+
+        $extension = $matches[1];
+        $imageData = substr($base64Data, strpos($base64Data, ',') + 1);
+        $imageData = base64_decode($imageData);
+
+        if ($imageData === false) {
+            throw new \InvalidArgumentException('Données base64 invalides');
+        }
+
+        // Générer un nom de fichier unique
+        $fileName = 'user_' . $userId . '_photo_' . uniqid() . '.' . $extension;
+        $filePath = $this->getFilePath($fileName);
+
+        // Sauvegarder le fichier
+        if (file_put_contents($filePath, $imageData) === false) {
+            throw new \RuntimeException('Impossible de sauvegarder le fichier');
+        }
+
+        // Redimensionner l'image
+        $this->resizeImage($filePath, 300, 300);
+
+        return $fileName;
+    }
+
+    /**
+     * Vérifie si une chaîne est une image base64
+     */
+    public function isBase64Image(string $data): bool
+    {
+        return preg_match('/^data:image\/(\w+);base64,/', $data) === 1;
+    }
+
+    /**
+     * Nettoie une chaîne base64 stockée en base de données
+     */
+    public function cleanBase64FromDatabase(string $base64Data): ?string
+    {
+        if ($this->isBase64Image($base64Data)) {
+            // Extraire le nom de fichier ou générer un nouveau nom
+            $userId = 1; // Vous devrez passer l'ID utilisateur
+            try {
+                return $this->saveBase64Image($base64Data, $userId);
+            } catch (\Exception $e) {
+                error_log('Erreur lors de la conversion base64: ' . $e->getMessage());
+                return null;
+            }
+        }
+        
+        return $base64Data; // Retourner tel quel si ce n'est pas du base64
+    }
 }
