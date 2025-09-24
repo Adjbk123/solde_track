@@ -134,7 +134,7 @@ abstract class Mouvement
 
     public function getTypeLabel(): ?string
     {
-        return $this->type ? self::TYPES[$this->type] : null;
+        return $this->type ? (self::TYPES[$this->type] ?? null) : null;
     }
 
     public function getMontantTotal(): ?string
@@ -179,7 +179,7 @@ abstract class Mouvement
 
     public function getStatutLabel(): ?string
     {
-        return $this->statut ? self::STATUTS[$this->statut] : null;
+        return $this->statut ? (self::STATUTS[$this->statut] ?? null) : null;
     }
 
     public function getDate(): ?\DateTimeInterface
