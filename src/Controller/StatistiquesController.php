@@ -59,12 +59,12 @@ class StatistiquesController extends AbstractController
             ],
             'detail' => [
                 'entrees' => [
-                    'entrees_normales' => number_format($statistics['entrees']['detail']['entrees'], 2, '.', ''),
-                    'dettes_a_recevoir' => number_format($statistics['entrees']['detail']['dettes_a_recevoir'], 2, '.', '')
+                    'entrees_normales' => number_format($statistics['entrees']['detail']['entrees'] ?? 0, 2, '.', ''),
+                    'dettes_a_recevoir' => number_format($statistics['entrees']['detail']['dettes_a_recevoir'] ?? 0, 2, '.', '')
                 ],
                 'sorties' => [
-                    'depenses' => number_format($statistics['sorties']['detail']['depenses'], 2, '.', ''),
-                    'dettes_a_payer' => number_format($statistics['sorties']['detail']['dettes_a_payer'], 2, '.', '')
+                    'depenses' => number_format($statistics['sorties']['detail']['depenses'] ?? 0, 2, '.', ''),
+                    'dettes_a_payer' => number_format($statistics['sorties']['detail']['dettes_a_payer'] ?? 0, 2, '.', '')
                 ]
             ]
         ]);

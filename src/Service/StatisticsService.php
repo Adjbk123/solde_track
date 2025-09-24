@@ -316,23 +316,28 @@ class StatisticsService
     private function getPeriodeActuelle(string $periode): array
     {
         $fin = new \DateTime();
-        $debut = clone $fin;
+        $debut = new \DateTime();
         
         switch ($periode) {
             case 'semaine':
-                $debut->modify('-1 week');
+                $debut->modify('monday this week');
+                $fin->modify('sunday this week');
                 break;
             case 'mois':
-                $debut->modify('-1 month');
+                $debut->modify('first day of this month');
+                $fin->modify('last day of this month');
                 break;
             case 'trimestre':
-                $debut->modify('-3 months');
+                $debut->modify('first day of this quarter');
+                $fin->modify('last day of this quarter');
                 break;
             case 'annee':
-                $debut->modify('-1 year');
+                $debut->modify('first day of this year');
+                $fin->modify('last day of this year');
                 break;
             default:
-                $debut->modify('-1 month');
+                $debut->modify('monday this week');
+                $fin->modify('sunday this week');
         }
         
         return ['debut' => $debut, 'fin' => $fin];
@@ -348,24 +353,24 @@ class StatisticsService
         
         switch ($periode) {
             case 'semaine':
-                $fin->modify('-1 week');
-                $debut->modify('-2 weeks');
+                $debut->modify('monday last week');
+                $fin->modify('sunday last week');
                 break;
             case 'mois':
-                $fin->modify('-1 month');
-                $debut->modify('-2 months');
+                $debut->modify('first day of last month');
+                $fin->modify('last day of last month');
                 break;
             case 'trimestre':
-                $fin->modify('-3 months');
-                $debut->modify('-6 months');
+                $debut->modify('first day of last quarter');
+                $fin->modify('last day of last quarter');
                 break;
             case 'annee':
-                $fin->modify('-1 year');
-                $debut->modify('-2 years');
+                $debut->modify('first day of last year');
+                $fin->modify('last day of last year');
                 break;
             default:
-                $fin->modify('-1 week');
-                $debut->modify('-2 weeks');
+                $debut->modify('monday last week');
+                $fin->modify('sunday last week');
         }
         
         return ['debut' => $debut, 'fin' => $fin];
