@@ -28,5 +28,12 @@ services:
             $params: '@parameter_bag'
             $logger: '@logger'
 
+    # Configuration explicite du StatistiquesController
+    App\Controller\StatistiquesController:
+        arguments:
+            $entityManager: '@doctrine.orm.entity_manager'
+            $userDeviseService: '@App\Service\UserDeviseService'
+            $statisticsService: '@App\Service\StatisticsService'
+
     # add more service definitions when explicit configuration is needed
     # please note that last definitions always *replace* previous ones
