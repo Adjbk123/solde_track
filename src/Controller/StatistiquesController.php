@@ -32,14 +32,36 @@ class StatistiquesController extends AbstractController
         }
 
         $periode = $request->query->get('periode', 'semaine');
-        $debut = $this->getDateDebut($periode);
-        $fin = new \DateTime();
+        
+        // Gestion de la période personnalisée
+        if ($periode === 'personnalise') {
+            $debutParam = $request->query->get('debut');
+            $finParam = $request->query->get('fin');
+            
+            if (!$debutParam || !$finParam) {
+                return new JsonResponse([
+                    'error' => 'Paramètres debut et fin requis pour periode=personnalise'
+                ], Response::HTTP_BAD_REQUEST);
+            }
+            
+            try {
+                $debut = new \DateTime($debutParam);
+                $fin = new \DateTime($finParam);
+            } catch (\Exception $e) {
+                return new JsonResponse([
+                    'error' => 'Format de date invalide. Utilisez le format Y-m-d'
+                ], Response::HTTP_BAD_REQUEST);
+            }
+        } else {
+            $debut = $this->getDateDebut($periode);
+            $fin = new \DateTime();
+        }
 
         // Utiliser le nouveau service de statistiques
         $statistics = $this->statisticsService->calculateGlobalStatistics($user, $debut, $fin);
         $variations = $this->statisticsService->calculateVariations($user, $periode);
 
-        return new JsonResponse([
+        $response = [
             'periode' => $periode,
             'entrees' => [
                 'montant' => number_format($statistics['entrees']['total'], 2, '.', ''),
@@ -67,7 +89,17 @@ class StatistiquesController extends AbstractController
                     'dettes_a_payer' => number_format($statistics['sorties']['detail']['dettes_a_payer'] ?? 0, 2, '.', '')
                 ]
             ]
-        ]);
+        ];
+
+        // Ajouter les dates pour la période personnalisée
+        if ($periode === 'personnalise') {
+            $response['dates'] = [
+                'debut' => $debut->format('Y-m-d'),
+                'fin' => $fin->format('Y-m-d')
+            ];
+        }
+
+        return new JsonResponse($response);
     }
 
     #[Route('/evolution-sorties', name: 'evolution_sorties', methods: ['GET'])]

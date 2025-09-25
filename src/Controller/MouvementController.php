@@ -1238,4 +1238,98 @@ class MouvementController extends AbstractController
         ]);
     }
 
+    /**
+     * Récupérer les mouvements d'une date spécifique
+     */
+    #[Route('/date/{date}', name: 'by_date', methods: ['GET'])]
+    public function getMovementsByDate(string $date, Request $request): JsonResponse
+    {
+        $user = $this->getUser();
+        if (!$user instanceof User) {
+            return new JsonResponse(['error' => 'Non authentifié'], Response::HTTP_UNAUTHORIZED);
+        }
+
+        $type = $request->query->get('type'); // depense/sortie, entree, dette, don
+        
+        // Support de l'ancien terme "depense" et du nouveau "sortie"
+        if ($type === 'depense') {
+            $type = 'sortie';
+        }
+
+        try {
+            $targetDate = new \DateTime($date);
+            $startOfDay = clone $targetDate;
+            $startOfDay->setTime(0, 0, 0);
+            $endOfDay = clone $targetDate;
+            $endOfDay->setTime(23, 59, 59);
+        } catch (\Exception $e) {
+            return new JsonResponse(['error' => 'Format de date invalide. Utilisez le format Y-m-d (ex: 2024-01-15)'], Response::HTTP_BAD_REQUEST);
+        }
+
+        $qb = $this->entityManager->getRepository(Mouvement::class)
+            ->createQueryBuilder('m')
+            ->where('m.user = :user')
+            ->andWhere('m.date >= :start')
+            ->andWhere('m.date <= :end')
+            ->setParameter('user', $user)
+            ->setParameter('start', $startOfDay)
+            ->setParameter('end', $endOfDay)
+            ->orderBy('m.date', 'DESC');
+
+        if ($type) {
+            $qb->andWhere('m INSTANCE OF :type');
+            $typeClass = match($type) {
+                'sortie' => Depense::class,
+                'entree' => Entree::class,
+                'dette' => Dette::class,
+                'don' => Don::class,
+                default => null
+            };
+            if ($typeClass) {
+                $qb->setParameter('type', $typeClass);
+            }
+        }
+
+        $mouvements = $qb->getQuery()->getResult();
+
+        // Calculer les totaux
+        $totalSorties = 0;
+        $totalEntrees = 0;
+        $totalDettes = 0;
+        $totalDons = 0;
+
+        foreach ($mouvements as $mouvement) {
+            $montant = (float) $mouvement->getMontantTotal();
+            switch ($mouvement->getType()) {
+                case 'sortie':
+                    $totalSorties += $montant;
+                    break;
+                case 'entree':
+                    $totalEntrees += $montant;
+                    break;
+                case 'dette_a_payer':
+                case 'dette_a_recevoir':
+                    $totalDettes += $montant;
+                    break;
+                case 'don':
+                    $totalDons += $montant;
+                    break;
+            }
+        }
+
+        return new JsonResponse([
+            'date' => $targetDate->format('Y-m-d'),
+            'mouvements' => array_map(fn($m) => $this->serializeMouvement($m, $user), $mouvements),
+            'total' => count($mouvements),
+            'totaux' => [
+                'sorties' => number_format($totalSorties, 2, '.', ''),
+                'entrees' => number_format($totalEntrees, 2, '.', ''),
+                'dettes' => number_format($totalDettes, 2, '.', ''),
+                'dons' => number_format($totalDons, 2, '.', ''),
+                'solde_net' => number_format($totalEntrees - $totalSorties, 2, '.', '')
+            ],
+            'devise' => $user->getDevise() ? $user->getDevise()->getCode() : 'XOF'
+        ]);
+    }
+
 }
