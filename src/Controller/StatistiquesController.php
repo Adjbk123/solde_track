@@ -61,6 +61,27 @@ class StatistiquesController extends AbstractController
         $statistics = $this->statisticsService->calculateGlobalStatistics($user, $debut, $fin);
         $variations = $this->statisticsService->calculateVariations($user, $periode);
 
+        // Récupérer les mouvements pour la période personnalisée
+        $mouvements = [];
+        if ($periode === 'personnalise') {
+            $qb = $this->entityManager->getRepository(Mouvement::class)
+                ->createQueryBuilder('m')
+                ->where('m.user = :user')
+                ->andWhere('m.date >= :debut')
+                ->andWhere('m.date <= :fin')
+                ->setParameter('user', $user)
+                ->setParameter('debut', $debut)
+                ->setParameter('fin', $fin)
+                ->orderBy('m.date', 'DESC');
+
+            $mouvementsResult = $qb->getQuery()->getResult();
+            
+            // Sérialiser les mouvements
+            foreach ($mouvementsResult as $mouvement) {
+                $mouvements[] = $this->serializeMouvement($mouvement, $user);
+            }
+        }
+
         $response = [
             'periode' => $periode,
             'entrees' => [
@@ -91,12 +112,14 @@ class StatistiquesController extends AbstractController
             ]
         ];
 
-        // Ajouter les dates pour la période personnalisée
+        // Ajouter les dates et mouvements pour la période personnalisée
         if ($periode === 'personnalise') {
             $response['dates'] = [
                 'debut' => $debut->format('Y-m-d'),
                 'fin' => $fin->format('Y-m-d')
             ];
+            $response['mouvements'] = $mouvements;
+            $response['total_mouvements'] = count($mouvements);
         }
 
         return new JsonResponse($response);
@@ -428,6 +451,95 @@ class StatistiquesController extends AbstractController
         }
         
         return $debut;
+    }
+
+    private function serializeMouvement(Mouvement $mouvement, User $user = null): array
+    {
+        $data = [
+            'id' => $mouvement->getId(),
+            'type' => $mouvement->getType(),
+            'typeLabel' => $mouvement->getTypeLabel(),
+            'montantTotal' => $mouvement->getMontantTotal(),
+            'montantEffectif' => $mouvement->getMontantEffectif(),
+            'montantRestant' => $mouvement->getMontantRestant(),
+            'statut' => $mouvement->getStatut(),
+            'statutLabel' => $mouvement->getStatutLabel(),
+            'date' => $mouvement->getDate()->format('Y-m-d H:i:s'),
+            'description' => $mouvement->getDescription(),
+        ];
+
+        if ($user) {
+            $data['montantTotalFormatted'] = $this->userDeviseService->formatAmount($user, (float) $mouvement->getMontantTotal());
+            $data['montantEffectifFormatted'] = $this->userDeviseService->formatAmount($user, (float) $mouvement->getMontantEffectif());
+            $data['montantRestantFormatted'] = $this->userDeviseService->formatAmount($user, (float) $mouvement->getMontantRestant());
+        }
+
+        // Ajouter les relations si elles existent
+        if ($mouvement->getCategorie()) {
+            $data['categorie'] = [
+                'id' => $mouvement->getCategorie()->getId(),
+                'nom' => $mouvement->getCategorie()->getNom(),
+                'type' => $mouvement->getCategorie()->getType(),
+                'typeLabel' => $mouvement->getCategorie()->getTypeLabel(),
+            ];
+        }
+
+        if ($mouvement->getProjet()) {
+            $data['projet'] = [
+                'id' => $mouvement->getProjet()->getId(),
+                'nom' => $mouvement->getProjet()->getNom(),
+                'description' => $mouvement->getProjet()->getDescription(),
+                'budgetPrevu' => $mouvement->getProjet()->getBudgetPrevu(),
+                'budgetPrevuFormatted' => $user ? $this->userDeviseService->formatAmount($user, (float) $mouvement->getProjet()->getBudgetPrevu()) : null,
+            ];
+        }
+
+        if ($mouvement->getContact()) {
+            $data['contact'] = [
+                'id' => $mouvement->getContact()->getId(),
+                'nom' => $mouvement->getContact()->getNom(),
+                'telephone' => $mouvement->getContact()->getTelephone(),
+                'email' => $mouvement->getContact()->getEmail(),
+                'source' => $mouvement->getContact()->getSource(),
+            ];
+        }
+
+        if ($mouvement->getCompte()) {
+            $data['compte'] = [
+                'id' => $mouvement->getCompte()->getId(),
+                'nom' => $mouvement->getCompte()->getNom(),
+                'description' => $mouvement->getCompte()->getDescription(),
+                'soldeActuel' => $mouvement->getCompte()->getSoldeActuel(),
+                'soldeActuelFormatted' => $user ? $this->userDeviseService->formatAmount($user, (float) $mouvement->getCompte()->getSoldeActuel()) : null,
+                'devise' => $mouvement->getCompte()->getDevise()->getCode(),
+            ];
+        }
+
+        // Ajouter les champs spécifiques selon le type
+        if ($mouvement instanceof \App\Entity\Depense) {
+            $data['lieu'] = $mouvement->getLieu();
+            $data['methodePaiement'] = $mouvement->getMethodePaiement();
+            $data['methodePaiementLabel'] = $mouvement->getMethodePaiementLabel();
+            $data['recu'] = $mouvement->getRecu();
+        } elseif ($mouvement instanceof \App\Entity\Entree) {
+            $data['source'] = $mouvement->getSource();
+            $data['methode'] = $mouvement->getMethode();
+            $data['methodeLabel'] = $mouvement->getMethodeLabel();
+        } elseif ($mouvement instanceof \App\Entity\Dette) {
+            $data['echeance'] = $mouvement->getEcheance()?->format('Y-m-d');
+            $data['taux'] = $mouvement->getTaux();
+            $data['montantRest'] = $mouvement->getMontantRest();
+            $data['montantInterets'] = $mouvement->getMontantInterets();
+            $data['enRetard'] = $mouvement->isEnRetard();
+            if ($user) {
+                $data['montantRestFormatted'] = $this->userDeviseService->formatAmount($user, (float) $mouvement->getMontantRest());
+                $data['montantInteretsFormatted'] = $this->userDeviseService->formatAmount($user, (float) $mouvement->getMontantInterets());
+            }
+        } elseif ($mouvement instanceof \App\Entity\Don) {
+            $data['occasion'] = $mouvement->getOccasion();
+        }
+
+        return $data;
     }
 
     private function getPeriodeActuelle(string $periode): array
