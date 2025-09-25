@@ -68,12 +68,28 @@ class TransfertController extends AbstractController
                 'compteSource' => [
                     'id' => $transfert->getCompteSource()->getId(),
                     'nom' => $transfert->getCompteSource()->getNom(),
-                    'type' => $transfert->getCompteSource()->getType()
+                    'description' => $transfert->getCompteSource()->getDescription(),
+                    'type' => $transfert->getCompteSource()->getType(),
+                    'soldeActuel' => $transfert->getCompteSource()->getSoldeActuel(),
+                    'soldeActuelFormatted' => $this->userDeviseService->formatAmount($user, (float) $transfert->getCompteSource()->getSoldeActuel()),
+                    'devise' => [
+                        'id' => $transfert->getCompteSource()->getDevise()->getId(),
+                        'code' => $transfert->getCompteSource()->getDevise()->getCode(),
+                        'nom' => $transfert->getCompteSource()->getDevise()->getNom()
+                    ]
                 ],
                 'compteDestination' => [
                     'id' => $transfert->getCompteDestination()->getId(),
                     'nom' => $transfert->getCompteDestination()->getNom(),
-                    'type' => $transfert->getCompteDestination()->getType()
+                    'description' => $transfert->getCompteDestination()->getDescription(),
+                    'type' => $transfert->getCompteDestination()->getType(),
+                    'soldeActuel' => $transfert->getCompteDestination()->getSoldeActuel(),
+                    'soldeActuelFormatted' => $this->userDeviseService->formatAmount($user, (float) $transfert->getCompteDestination()->getSoldeActuel()),
+                    'devise' => [
+                        'id' => $transfert->getCompteDestination()->getDevise()->getId(),
+                        'code' => $transfert->getCompteDestination()->getDevise()->getCode(),
+                        'nom' => $transfert->getCompteDestination()->getDevise()->getNom()
+                    ]
                 ],
                 'date' => $transfert->getDate()->format('Y-m-d H:i:s'),
                 'note' => $transfert->getNote(),
