@@ -48,7 +48,9 @@ class PhotoController extends AbstractController
         try {
             // Supprimer l'ancienne photo si elle existe
             if ($user->getPhoto()) {
-                $this->photoUploadService->delete($user->getPhoto());
+                $oldPhotoPath = $user->getPhoto();
+                $oldFileName = basename($oldPhotoPath); // Extraire juste le nom du fichier
+                $this->photoUploadService->delete($oldFileName);
             }
 
             // Uploader la nouvelle photo
@@ -58,15 +60,17 @@ class PhotoController extends AbstractController
             $filePath = $this->photoUploadService->getFilePath($fileName);
             $this->photoUploadService->resizeImage($filePath, 300, 300);
 
-            // Mettre à jour l'utilisateur
-            $user->setPhoto($fileName);
+            // Mettre à jour l'utilisateur avec le chemin complet
+            $fullPath = '/uploads/profils/' . $fileName;
+            $user->setPhoto($fullPath);
             $this->entityManager->flush();
 
             return new JsonResponse([
                 'message' => 'Photo uploadée avec succès',
                 'photo' => [
                     'filename' => $fileName,
-                    'url' => $fileName
+                    'url' => $fullPath,
+                    'full_path' => $fullPath
                 ]
             ]);
 
@@ -94,8 +98,12 @@ class PhotoController extends AbstractController
         }
 
         try {
+            // Extraire le nom de fichier du chemin complet
+            $photoPath = $user->getPhoto();
+            $fileName = basename($photoPath); // Extraire juste le nom du fichier
+            
             // Supprimer le fichier
-            $deleted = $this->photoUploadService->delete($user->getPhoto());
+            $deleted = $this->photoUploadService->delete($fileName);
             
             if ($deleted) {
                 // Mettre à jour l'utilisateur
@@ -168,21 +176,25 @@ class PhotoController extends AbstractController
         try {
             // Supprimer l'ancienne photo si elle existe
             if ($user->getPhoto()) {
-                $this->photoUploadService->delete($user->getPhoto());
+                $oldPhotoPath = $user->getPhoto();
+                $oldFileName = basename($oldPhotoPath); // Extraire juste le nom du fichier
+                $this->photoUploadService->delete($oldFileName);
             }
 
             // Sauvegarder l'image base64 comme fichier
             $fileName = $this->photoUploadService->saveBase64Image($base64Data, $user->getId());
 
-            // Mettre à jour l'utilisateur
-            $user->setPhoto($fileName);
+            // Mettre à jour l'utilisateur avec le chemin complet
+            $fullPath = '/uploads/profils/' . $fileName;
+            $user->setPhoto($fullPath);
             $this->entityManager->flush();
 
             return new JsonResponse([
                 'message' => 'Photo uploadée avec succès',
                 'photo' => [
                     'filename' => $fileName,
-                    'url' => $fileName
+                    'url' => $fullPath,
+                    'full_path' => $fullPath
                 ]
             ]);
 
