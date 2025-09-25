@@ -2,6 +2,7 @@
 
 namespace App\Entity;
 
+use App\Entity\Traits\TimestampableTrait;
 use App\Repository\CompteRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
@@ -12,6 +13,7 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Table(name: 'compte')]
 class Compte
 {
+    use TimestampableTrait;
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column]
@@ -43,6 +45,12 @@ class Compte
     #[ORM\Column(type: Types::DATETIME_MUTABLE, nullable: true)]
     private ?\DateTimeInterface $dateModification = null;
 
+    #[ORM\Column(type: Types::DATETIME_MUTABLE)]
+    private ?\DateTimeInterface $createdAt = null;
+
+    #[ORM\Column(type: Types::DATETIME_MUTABLE)]
+    private ?\DateTimeInterface $updatedAt = null;
+
     #[ORM\Column]
     private ?bool $actif = null;
 
@@ -62,6 +70,8 @@ class Compte
     {
         $this->mouvements = new ArrayCollection();
         $this->dateCreation = new \DateTime();
+        $this->createdAt = new \DateTime();
+        $this->updatedAt = new \DateTime();
         $this->actif = true;
         $this->soldeInitial = '0.00';
         $this->soldeActuel = '0.00';
@@ -212,6 +222,30 @@ class Compte
     public function setInstitution(?string $institution): static
     {
         $this->institution = $institution;
+
+        return $this;
+    }
+
+    public function getCreatedAt(): ?\DateTimeInterface
+    {
+        return $this->createdAt;
+    }
+
+    public function setCreatedAt(\DateTimeInterface $createdAt): static
+    {
+        $this->createdAt = $createdAt;
+
+        return $this;
+    }
+
+    public function getUpdatedAt(): ?\DateTimeInterface
+    {
+        return $this->updatedAt;
+    }
+
+    public function setUpdatedAt(\DateTimeInterface $updatedAt): static
+    {
+        $this->updatedAt = $updatedAt;
 
         return $this;
     }

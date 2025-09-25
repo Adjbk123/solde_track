@@ -2,6 +2,7 @@
 
 namespace App\Entity;
 
+use App\Entity\Traits\TimestampableTrait;
 use App\Repository\MouvementRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
@@ -21,6 +22,7 @@ use Doctrine\ORM\Mapping as ORM;
 ])]
 abstract class Mouvement
 {
+    use TimestampableTrait;
     public const TYPE_ENTREE = 'entree';
     public const TYPE_SORTIE = 'sortie';
     public const TYPE_DETTE_A_PAYER = 'dette_a_payer';
@@ -69,6 +71,12 @@ abstract class Mouvement
     #[ORM\Column(type: Types::DATETIME_MUTABLE)]
     private ?\DateTimeInterface $date = null;
 
+    #[ORM\Column(type: Types::DATETIME_MUTABLE)]
+    private ?\DateTimeInterface $createdAt = null;
+
+    #[ORM\Column(type: Types::DATETIME_MUTABLE)]
+    private ?\DateTimeInterface $updatedAt = null;
+
     #[ORM\Column(type: Types::TEXT, nullable: true)]
     private ?string $description = null;
 
@@ -94,6 +102,8 @@ abstract class Mouvement
     public function __construct()
     {
         $this->date = new \DateTime();
+        $this->createdAt = new \DateTime();
+        $this->updatedAt = new \DateTime();
         $this->montantEffectif = '0.00';
         $this->statut = self::STATUT_NON_PAYE;
         $this->paiements = new ArrayCollection();
@@ -190,6 +200,30 @@ abstract class Mouvement
     public function setDate(\DateTimeInterface $date): static
     {
         $this->date = $date;
+
+        return $this;
+    }
+
+    public function getCreatedAt(): ?\DateTimeInterface
+    {
+        return $this->createdAt;
+    }
+
+    public function setCreatedAt(\DateTimeInterface $createdAt): static
+    {
+        $this->createdAt = $createdAt;
+
+        return $this;
+    }
+
+    public function getUpdatedAt(): ?\DateTimeInterface
+    {
+        return $this->updatedAt;
+    }
+
+    public function setUpdatedAt(\DateTimeInterface $updatedAt): static
+    {
+        $this->updatedAt = $updatedAt;
 
         return $this;
     }

@@ -466,6 +466,8 @@ class StatistiquesController extends AbstractController
             'statutLabel' => $mouvement->getStatutLabel(),
             'date' => $mouvement->getDate()->format('Y-m-d H:i:s'),
             'description' => $mouvement->getDescription(),
+            'createdAt' => $mouvement->getCreatedAt()->format('Y-m-d H:i:s'),
+            'updatedAt' => $mouvement->getUpdatedAt()->format('Y-m-d H:i:s'),
         ];
 
         if ($user) {

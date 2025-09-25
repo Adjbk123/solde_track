@@ -2,6 +2,7 @@
 
 namespace App\Entity;
 
+use App\Entity\Traits\TimestampableTrait;
 use App\Repository\PaiementRepository;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
@@ -10,6 +11,7 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Table(name: 'paiement')]
 class Paiement
 {
+    use TimestampableTrait;
     public const STATUT_RECU = 'recu';
     public const STATUT_PAYE = 'paye';
 
@@ -39,9 +41,17 @@ class Paiement
     #[ORM\Column(length: 50)]
     private ?string $statut = null;
 
+    #[ORM\Column(type: Types::DATETIME_MUTABLE)]
+    private ?\DateTimeInterface $createdAt = null;
+
+    #[ORM\Column(type: Types::DATETIME_MUTABLE)]
+    private ?\DateTimeInterface $updatedAt = null;
+
     public function __construct()
     {
         $this->date = new \DateTime();
+        $this->createdAt = new \DateTime();
+        $this->updatedAt = new \DateTime();
         $this->statut = self::STATUT_PAYE;
     }
 
@@ -117,5 +127,29 @@ class Paiement
     public function getStatutLabel(): ?string
     {
         return $this->statut ? self::STATUTS[$this->statut] : null;
+    }
+
+    public function getCreatedAt(): ?\DateTimeInterface
+    {
+        return $this->createdAt;
+    }
+
+    public function setCreatedAt(\DateTimeInterface $createdAt): static
+    {
+        $this->createdAt = $createdAt;
+
+        return $this;
+    }
+
+    public function getUpdatedAt(): ?\DateTimeInterface
+    {
+        return $this->updatedAt;
+    }
+
+    public function setUpdatedAt(\DateTimeInterface $updatedAt): static
+    {
+        $this->updatedAt = $updatedAt;
+
+        return $this;
     }
 }
