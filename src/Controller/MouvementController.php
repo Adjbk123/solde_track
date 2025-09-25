@@ -577,6 +577,13 @@ class MouvementController extends AbstractController
         $dette->setEcheance(isset($data['echeance']) ? new \DateTime($data['echeance']) : null);
         $dette->setTaux($data['taux'] ?? null);
         $dette->setMontantRest($data['montantTotal']); // Initialement, le montant restant = montant total
+        
+        // Gestion du paramètre deja_depense
+        $dejaDepense = $data['deja_depense'] ?? false;
+        
+        // Déterminer le type de dette selon le contexte
+        $typeDette = $data['type_dette'] ?? 'dette_a_recevoir'; // 'dette_a_recevoir' ou 'dette_a_payer'
+        $dette->setType($typeDette);
 
         if (isset($data['projet_id'])) {
             $projet = $this->entityManager->getRepository(Projet::class)->find($data['projet_id']);
@@ -618,7 +625,13 @@ class MouvementController extends AbstractController
         $this->entityManager->persist($dette);
         
         // Mettre à jour le solde du compte AVANT le flush
-        $this->updateCompteSolde($dette);
+        // Si deja_depense = true, ne pas modifier le solde du compte
+        if (!$dejaDepense) {
+            $this->updateCompteSolde($dette);
+        } else {
+            // Marquer comme déjà traité (montant effectif = 0)
+            $dette->setMontantEffectif('0.00');
+        }
         
         $this->entityManager->flush();
 
