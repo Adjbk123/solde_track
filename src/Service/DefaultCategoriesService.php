@@ -18,6 +18,7 @@ class DefaultCategoriesService
         ['nom' => 'Don reçu', 'type' => Categorie::TYPE_ENTREE],
         ['nom' => 'Prêt à recevoir', 'type' => Categorie::TYPE_ENTREE],
         ['nom' => 'Créance', 'type' => Categorie::TYPE_ENTREE],
+        ['nom' => 'Emprunt reçu', 'type' => Categorie::TYPE_ENTREE],
         
         // SORTIES
         ['nom' => 'Alimentation', 'type' => Categorie::TYPE_SORTIE],
@@ -32,7 +33,8 @@ class DefaultCategoriesService
         ['nom' => 'Internet/Téléphone', 'type' => Categorie::TYPE_SORTIE],
         ['nom' => 'Don donné', 'type' => Categorie::TYPE_SORTIE],
         ['nom' => 'Prêt à rembourser', 'type' => Categorie::TYPE_SORTIE],
-        ['nom' => 'Dette', 'type' => Categorie::TYPE_SORTIE],
+        ['nom' => 'Emprunt à rembourser', 'type' => Categorie::TYPE_SORTIE],
+        ['nom' => 'Créance à payer', 'type' => Categorie::TYPE_SORTIE],
     ];
 
     public function __construct(
