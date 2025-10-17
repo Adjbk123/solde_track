@@ -19,8 +19,9 @@ class DebtManagementService
     public function getCategoryTypeForDebtMovement(string $movementType): string
     {
         return match($movementType) {
-            Mouvement::TYPE_DETTE_A_RECEVOIR => Categorie::TYPE_ENTREE,
-            Mouvement::TYPE_DETTE_A_PAYER => Categorie::TYPE_SORTIE,
+            Mouvement::TYPE_PRET => Categorie::TYPE_ENTREE,
+            Mouvement::TYPE_EMPRUNT => Categorie::TYPE_SORTIE,
+            Mouvement::TYPE_CREANCE => Categorie::TYPE_ENTREE,
             default => throw new \InvalidArgumentException("Type de mouvement de dette invalide: {$movementType}")
         };
     }
@@ -31,14 +32,19 @@ class DebtManagementService
     public function getSuggestedCategoriesForDebtMovement(string $movementType): array
     {
         return match($movementType) {
-            Mouvement::TYPE_DETTE_A_RECEVOIR => [
+            Mouvement::TYPE_PRET => [
                 'Prêt à recevoir',
                 'Créance',
                 'Remboursement'
             ],
-            Mouvement::TYPE_DETTE_A_PAYER => [
+            Mouvement::TYPE_EMPRUNT => [
                 'Prêt à rembourser',
                 'Dette'
+            ],
+            Mouvement::TYPE_CREANCE => [
+                'Créance commerciale',
+                'Facture impayée',
+                'Autre créance'
             ],
             default => []
         };
@@ -125,14 +131,14 @@ class DebtManagementService
             $fin = new \DateTime();
         }
         
-        $dettesAPayer = $mouvementRepo->getTotalByType($user, Mouvement::TYPE_DETTE_A_PAYER, $debut, $fin);
-        $dettesARecevoir = $mouvementRepo->getTotalByType($user, Mouvement::TYPE_DETTE_A_RECEVOIR, $debut, $fin);
+        $emprunts = $mouvementRepo->getTotalByType($user, Mouvement::TYPE_EMPRUNT, $debut, $fin);
+        $prets = $mouvementRepo->getTotalByType($user, Mouvement::TYPE_PRET, $debut, $fin);
         
         return [
-            'dettes_a_payer' => $dettesAPayer,
-            'dettes_a_recevoir' => $dettesARecevoir,
-            'solde_dettes' => $dettesARecevoir - $dettesAPayer,
-            'net_positive' => $dettesARecevoir > $dettesAPayer
+            'emprunts' => $emprunts,
+            'prets' => $prets,
+            'solde_dettes' => $prets - $emprunts,
+            'net_positive' => $prets > $emprunts
         ];
     }
 }

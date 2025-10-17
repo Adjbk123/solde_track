@@ -21,14 +21,14 @@ class StatisticsService
 
         // Entrées (argent reçu)
         $entrees = $mouvementRepo->getTotalByType($user, Mouvement::TYPE_ENTREE, $debut, $fin);
-        $dettesARecevoir = $mouvementRepo->getTotalByType($user, Mouvement::TYPE_DETTE_A_RECEVOIR, $debut, $fin);
+        $prets = $mouvementRepo->getTotalByType($user, Mouvement::TYPE_PRET, $debut, $fin);
         
         // Sorties (argent dépensé)
         $sorties = $mouvementRepo->getTotalByType($user, Mouvement::TYPE_SORTIE, $debut, $fin);
-        $dettesAPayer = $mouvementRepo->getTotalByType($user, Mouvement::TYPE_DETTE_A_PAYER, $debut, $fin);
+        $emprunts = $mouvementRepo->getTotalByType($user, Mouvement::TYPE_EMPRUNT, $debut, $fin);
 
-        $totalEntrees = $entrees + $dettesARecevoir;
-        $totalSorties = $sorties + $dettesAPayer;
+        $totalEntrees = $entrees + $prets;
+        $totalSorties = $sorties + $emprunts;
         $soldeNet = $totalEntrees - $totalSorties;
 
         return [
@@ -36,14 +36,14 @@ class StatisticsService
                 'total' => $totalEntrees,
                 'detail' => [
                     'entrees' => $entrees,
-                    'dettes_a_recevoir' => $dettesARecevoir
+                    'prets' => $prets
                 ]
             ],
             'sorties' => [
                 'total' => $totalSorties,
                 'detail' => [
                     'sorties' => $sorties,
-                    'dettes_a_payer' => $dettesAPayer
+                    'emprunts' => $emprunts
                 ]
             ],
             'solde_net' => $soldeNet,
@@ -64,8 +64,9 @@ class StatisticsService
         $types = [
             Mouvement::TYPE_ENTREE => 'Entrées',
             Mouvement::TYPE_SORTIE => 'Dépenses',
-            Mouvement::TYPE_DETTE_A_PAYER => 'Dettes à payer',
-            Mouvement::TYPE_DETTE_A_RECEVOIR => 'Dettes à recevoir'
+            Mouvement::TYPE_EMPRUNT => 'Emprunts',
+            Mouvement::TYPE_PRET => 'Prêts',
+            Mouvement::TYPE_CREANCE => 'Créances'
         ];
 
         $statistics = [];
@@ -151,14 +152,14 @@ class StatisticsService
             $fin = new \DateTime();
         }
         
-        $dettesAPayer = $mouvementRepo->getTotalByType($user, Mouvement::TYPE_DETTE_A_PAYER, $debut, $fin);
-        $dettesARecevoir = $mouvementRepo->getTotalByType($user, Mouvement::TYPE_DETTE_A_RECEVOIR, $debut, $fin);
+        $emprunts = $mouvementRepo->getTotalByType($user, Mouvement::TYPE_EMPRUNT, $debut, $fin);
+        $prets = $mouvementRepo->getTotalByType($user, Mouvement::TYPE_PRET, $debut, $fin);
         
         return [
-            'dettes_a_payer' => $dettesAPayer,
-            'dettes_a_recevoir' => $dettesARecevoir,
-            'solde_dettes' => $dettesARecevoir - $dettesAPayer,
-            'net_positive' => $dettesARecevoir > $dettesAPayer
+            'emprunts' => $emprunts,
+            'prets' => $prets,
+            'solde_dettes' => $prets - $emprunts,
+            'net_positive' => $prets > $emprunts
         ];
     }
 
@@ -188,9 +189,9 @@ class StatisticsService
         $mouvementRepo = $this->entityManager->getRepository(Mouvement::class);
         
         $entrees = $mouvementRepo->getTotalByType($user, Mouvement::TYPE_ENTREE, $debut, $fin);
-        $dettesARecevoir = $mouvementRepo->getTotalByType($user, Mouvement::TYPE_DETTE_A_RECEVOIR, $debut, $fin);
+        $prets = $mouvementRepo->getTotalByType($user, Mouvement::TYPE_PRET, $debut, $fin);
         
-        $totalEntrees = $entrees + $dettesARecevoir;
+        $totalEntrees = $entrees + $prets;
         
         return [
             'periode' => [
@@ -200,12 +201,12 @@ class StatisticsService
             'total' => $totalEntrees,
             'detail' => [
                 'entrees_normales' => $entrees,
-                'dettes_a_recevoir' => $dettesARecevoir
+                'prets' => $prets
             ],
             'formatted' => [
                 'total' => number_format($totalEntrees, 2, '.', ''),
                 'entrees_normales' => number_format($entrees, 2, '.', ''),
-                'dettes_a_recevoir' => number_format($dettesARecevoir, 2, '.', '')
+                'prets' => number_format($prets, 2, '.', '')
             ]
         ];
     }
@@ -218,9 +219,9 @@ class StatisticsService
         $mouvementRepo = $this->entityManager->getRepository(Mouvement::class);
         
         $sorties = $mouvementRepo->getTotalByType($user, Mouvement::TYPE_SORTIE, $debut, $fin);
-        $dettesAPayer = $mouvementRepo->getTotalByType($user, Mouvement::TYPE_DETTE_A_PAYER, $debut, $fin);
+        $emprunts = $mouvementRepo->getTotalByType($user, Mouvement::TYPE_EMPRUNT, $debut, $fin);
         
-        $totalSorties = $sorties + $dettesAPayer;
+        $totalSorties = $sorties + $emprunts;
         
         return [
             'periode' => [
@@ -230,12 +231,12 @@ class StatisticsService
             'total' => $totalSorties,
             'detail' => [
                 'sorties' => $sorties,
-                'dettes_a_payer' => $dettesAPayer
+                'emprunts' => $emprunts
             ],
             'formatted' => [
                 'total' => number_format($totalSorties, 2, '.', ''),
                 'sorties' => number_format($sorties, 2, '.', ''),
-                'dettes_a_payer' => number_format($dettesAPayer, 2, '.', '')
+                'emprunts' => number_format($emprunts, 2, '.', '')
             ]
         ];
     }

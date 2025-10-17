@@ -25,15 +25,17 @@ abstract class Mouvement
     use TimestampableTrait;
     public const TYPE_ENTREE = 'entree';
     public const TYPE_SORTIE = 'sortie';
-    public const TYPE_DETTE_A_PAYER = 'dette_a_payer';
-    public const TYPE_DETTE_A_RECEVOIR = 'dette_a_recevoir';
+    public const TYPE_EMPRUNT = 'emprunt';
+    public const TYPE_PRET = 'pret';
+    public const TYPE_CREANCE = 'creance';
     public const TYPE_DON = 'don';
 
     public const TYPES = [
         self::TYPE_ENTREE => 'Entrée',
         self::TYPE_SORTIE => 'Sortie',
-        self::TYPE_DETTE_A_PAYER => 'Dette à payer',
-        self::TYPE_DETTE_A_RECEVOIR => 'Dette à recevoir',
+        self::TYPE_EMPRUNT => 'Emprunt',
+        self::TYPE_PRET => 'Prêt',
+        self::TYPE_CREANCE => 'Créance',
         self::TYPE_DON => 'Don',
     ];
 

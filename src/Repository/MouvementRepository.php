@@ -130,11 +130,11 @@ class MouvementRepository extends ServiceEntityRepository
     public function getSoldeTotal($user): float
     {
         $result = $this->createQueryBuilder('m')
-            ->select('SUM(CASE WHEN m.type IN (:entree, :dette_a_recevoir) THEN m.montantEffectif ELSE -m.montantEffectif END)')
+            ->select('SUM(CASE WHEN m.type IN (:entree, :pret) THEN m.montantEffectif ELSE -m.montantEffectif END)')
             ->andWhere('m.user = :user')
             ->setParameter('user', $user)
             ->setParameter('entree', Mouvement::TYPE_ENTREE)
-            ->setParameter('dette_a_recevoir', Mouvement::TYPE_DETTE_A_RECEVOIR)
+            ->setParameter('pret', Mouvement::TYPE_PRET)
             ->getQuery()
             ->getSingleScalarResult();
 
@@ -147,13 +147,13 @@ class MouvementRepository extends ServiceEntityRepository
     public function getSoldeDepensePrevue($user, $depensePrevue): float
     {
         $result = $this->createQueryBuilder('m')
-            ->select('SUM(CASE WHEN m.type IN (:entree, :dette_a_recevoir) THEN m.montantEffectif ELSE -m.montantEffectif END)')
+            ->select('SUM(CASE WHEN m.type IN (:entree, :pret) THEN m.montantEffectif ELSE -m.montantEffectif END)')
             ->andWhere('m.user = :user')
             ->andWhere('m.depensePrevue = :depensePrevue')
             ->setParameter('user', $user)
             ->setParameter('depensePrevue', $depensePrevue)
             ->setParameter('entree', Mouvement::TYPE_ENTREE)
-            ->setParameter('dette_a_recevoir', Mouvement::TYPE_DETTE_A_RECEVOIR)
+            ->setParameter('pret', Mouvement::TYPE_PRET)
             ->getQuery()
             ->getSingleScalarResult();
 

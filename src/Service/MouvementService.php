@@ -94,8 +94,9 @@ class MouvementService
         $mouvementsParType = [
             'sortie' => 0,
             'entree' => 0,
-            'dette_a_payer' => 0,
-            'dette_a_recevoir' => 0,
+            'emprunt' => 0,
+            'pret' => 0,
+            'creance' => 0,
             'don' => 0
         ];
         $mouvementsParCategorie = [];
@@ -112,8 +113,9 @@ class MouvementService
                 case 'entree':
                     $totalEntrees += $montant;
                     break;
-                case 'dette_a_payer':
-                case 'dette_a_recevoir':
+                case 'emprunt':
+                case 'pret':
+                case 'creance':
                     $totalDettes += $montant;
                     break;
                 case 'don':

@@ -319,12 +319,12 @@ class Compte
         foreach ($this->mouvements as $mouvement) {
             $montant = (float) $mouvement->getMontantEffectif();
             
-            // Les entrées et dettes à recevoir augmentent le solde
-            if (in_array($mouvement->getType(), [Mouvement::TYPE_ENTREE, Mouvement::TYPE_DETTE_A_RECEVOIR])) {
+            // Les entrées et prêts augmentent le solde
+            if (in_array($mouvement->getType(), [Mouvement::TYPE_ENTREE, Mouvement::TYPE_PRET])) {
                 $solde += $montant;
             }
-            // Les dépenses et dettes à payer diminuent le solde
-            elseif (in_array($mouvement->getType(), [Mouvement::TYPE_SORTIE, Mouvement::TYPE_DETTE_A_PAYER])) {
+            // Les dépenses et emprunts diminuent le solde
+            elseif (in_array($mouvement->getType(), [Mouvement::TYPE_SORTIE, Mouvement::TYPE_EMPRUNT])) {
                 $solde -= $montant;
             }
         }

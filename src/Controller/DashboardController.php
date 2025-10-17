@@ -173,7 +173,7 @@ class DashboardController extends AbstractController
                         'devise' => $user->getDevise() ? [
                             'id' => $user->getDevise()->getId(),
                             'code' => $user->getDevise()->getCode(),
-                            'symbole' => $user->getDevise()->getNom(),
+                            'symbole' => $user->getDevise()->getCode(),
                         ] : null,
                     ],
                     'statistiques' => $stats,
@@ -284,7 +284,7 @@ class DashboardController extends AbstractController
             
             foreach ($mouvements as $mouvement) {
                 $montant = (float) $mouvement->getMontantEffectif();
-                if (in_array($mouvement->getType(), [Mouvement::TYPE_ENTREE, Mouvement::TYPE_DETTE_A_RECEVOIR])) {
+                if (in_array($mouvement->getType(), [Mouvement::TYPE_ENTREE, Mouvement::TYPE_PRET])) {
                     $totalEntrees += $montant;
                 } else {
                     $totalDepenses += $montant;
@@ -634,4 +634,5 @@ class DashboardController extends AbstractController
             'totalMouvements' => count($mouvements)
         ]);
     }
+
 }
