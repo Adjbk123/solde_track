@@ -200,7 +200,13 @@ class AuthController extends AbstractController
                 'nom' => $user->getNom(),
                 'prenoms' => $user->getPrenoms(),
                 'photo' => $photoUrl,
-                'dateNaissance' => $user->getDateNaissance()?->format('Y-m-d')
+                'dateNaissance' => $user->getDateNaissance()?->format('Y-m-d'),
+                'dateCreation' => $user->getDateCreation()->format('Y-m-d H:i:s'),
+                'devise' => [
+                    'id' => $user->getDevise()?->getId(),
+                    'code' => $user->getDevise()?->getCode(),
+                    'nom' => $user->getDevise()?->getNom()
+                ]
             ]
         ]);
     }
