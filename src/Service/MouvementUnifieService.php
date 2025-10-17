@@ -164,14 +164,7 @@ class MouvementUnifieService
 
         // Gestion du statut pour les entrées
         if (isset($donnees['statut'])) {
-            // Mapper les statuts spécifiques aux entrées vers les statuts génériques
-            $statutMappe = match($donnees['statut']) {
-                'confirme' => 'paye', // Une entrée confirmée = payée
-                'en_attente' => 'non_paye', // Une entrée en attente = non payée
-                'rejete' => 'annule', // Une entrée rejetée = annulée
-                default => $donnees['statut']
-            };
-            $entree->setStatut($statutMappe);
+            $entree->setStatut($donnees['statut']);
         } else {
             // Statut par défaut pour les entrées : confirmé = payé
             $entree->setStatut('paye');
@@ -198,14 +191,7 @@ class MouvementUnifieService
 
         // Gestion du statut pour les dons
         if (isset($donnees['statut'])) {
-            // Mapper les statuts spécifiques aux dons vers les statuts génériques
-            $statutMappe = match($donnees['statut']) {
-                'effectue' => 'paye', // Un don effectué = payé
-                'planifie' => 'non_paye', // Un don planifié = non payé
-                'annule' => 'annule', // Un don annulé = annulé
-                default => $donnees['statut']
-            };
-            $don->setStatut($statutMappe);
+            $don->setStatut($donnees['statut']);
         } else {
             // Statut par défaut pour les dons : effectué = payé
             $don->setStatut('paye');

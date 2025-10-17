@@ -31,10 +31,10 @@ class StatutsMouvement
         self::STATUT_DETTE_EN_RETARD => 'En retard',
     ];
 
-    // Statuts spécifiques aux entrées
-    public const STATUT_ENTREE_EN_ATTENTE = 'en_attente';
-    public const STATUT_ENTREE_CONFIRME = 'confirme';
-    public const STATUT_ENTREE_REJETE = 'rejete';
+    // Statuts spécifiques aux entrées (mappés vers les statuts génériques)
+    public const STATUT_ENTREE_EN_ATTENTE = 'non_paye';
+    public const STATUT_ENTREE_CONFIRME = 'paye';
+    public const STATUT_ENTREE_REJETE = 'annule';
 
     public const STATUTS_ENTREE = [
         self::STATUT_ENTREE_EN_ATTENTE => 'En attente',
@@ -42,9 +42,9 @@ class StatutsMouvement
         self::STATUT_ENTREE_REJETE => 'Rejeté',
     ];
 
-    // Statuts spécifiques aux dons
-    public const STATUT_DON_PLANIFIE = 'planifie';
-    public const STATUT_DON_EFFECTUE = 'effectue';
+    // Statuts spécifiques aux dons (mappés vers les statuts génériques)
+    public const STATUT_DON_PLANIFIE = 'non_paye';
+    public const STATUT_DON_EFFECTUE = 'paye';
     public const STATUT_DON_ANNULE = 'annule';
 
     public const STATUTS_DON = [
@@ -83,8 +83,8 @@ class StatutsMouvement
     {
         return match($type) {
             'dette' => self::STATUT_DETTE_NON_PAYE,
-            'entree' => self::STATUT_ENTREE_CONFIRME,
-            'don' => self::STATUT_DON_EFFECTUE,
+            'entree' => self::STATUT_ENTREE_CONFIRME, // 'paye'
+            'don' => self::STATUT_DON_EFFECTUE, // 'paye'
             'sortie' => self::STATUT_ACTIF,
             default => self::STATUT_ACTIF,
         };
