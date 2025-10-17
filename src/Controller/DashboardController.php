@@ -25,6 +25,184 @@ class DashboardController extends AbstractController
         private StatisticsService $statisticsService
     ) {}
 
+    #[Route('/unified', name: 'unified', methods: ['GET'])]
+    public function getUnifiedDashboard(): JsonResponse
+    {
+        $user = $this->getUser();
+        if (!$user instanceof User) {
+            return new JsonResponse(['error' => 'Non authentifié'], Response::HTTP_UNAUTHORIZED);
+        }
+
+        try {
+            $mouvementRepo = $this->entityManager->getRepository(Mouvement::class);
+            $compteRepo = $this->entityManager->getRepository(Compte::class);
+            $detteRepo = $this->entityManager->getRepository(Dette::class);
+            $transfertRepo = $this->entityManager->getRepository(Transfert::class);
+
+            // Solde total
+            $soldeTotal = $mouvementRepo->getSoldeTotal($user);
+
+            // Statistiques par type
+            $stats = [];
+            foreach (Mouvement::TYPES as $type => $label) {
+                $mouvements = $mouvementRepo->findByUserAndType($user, $type);
+                $total = 0;
+                $count = count($mouvements);
+                
+                foreach ($mouvements as $mouvement) {
+                    $total += (float) $mouvement->getMontantEffectif();
+                }
+                
+                $stats[$type] = [
+                    'label' => $label,
+                    'total' => number_format($total, 2, '.', ''),
+                    'count' => $count,
+                ];
+            }
+
+            // Comptes
+            $comptes = $compteRepo->findBy(['user' => $user]);
+            $comptesData = [];
+            foreach ($comptes as $compte) {
+                $comptesData[] = [
+                    'id' => $compte->getId(),
+                    'nom' => $compte->getNom(),
+                    'soldeActuel' => $compte->getSoldeActuel(),
+                    'devise' => $compte->getDevise() ? [
+                        'id' => $compte->getDevise()->getId(),
+                        'code' => $compte->getDevise()->getCode(),
+                        'symbole' => $compte->getDevise()->getSymbole(),
+                    ] : null,
+                ];
+            }
+
+            // Mouvements récents (limite 5)
+            $mouvementsRecents = $mouvementRepo->findBy(
+                ['user' => $user],
+                ['date' => 'DESC'],
+                5
+            );
+            $mouvementsData = [];
+            foreach ($mouvementsRecents as $mouvement) {
+                $mouvementsData[] = [
+                    'id' => $mouvement->getId(),
+                    'type' => $mouvement->getType(),
+                    'montantEffectif' => $mouvement->getMontantEffectif(),
+                    'description' => $mouvement->getDescription(),
+                    'date' => $mouvement->getDate()->format('Y-m-d'),
+                    'categorie' => $mouvement->getCategorie() ? [
+                        'id' => $mouvement->getCategorie()->getId(),
+                        'nom' => $mouvement->getCategorie()->getNom(),
+                    ] : null,
+                ];
+            }
+
+            // Dettes en retard
+            $dettesEnRetard = $detteRepo->findDettesEnRetard($user);
+            $dettesData = [];
+            foreach ($dettesEnRetard as $dette) {
+                $dettesData[] = [
+                    'id' => $dette->getId(),
+                    'montantPrincipal' => $dette->getMontantPrincipal(),
+                    'description' => $dette->getDescription(),
+                    'dateEcheance' => $dette->getDateEcheance()?->format('Y-m-d'),
+                    'enRetard' => $dette->estEnRetard(),
+                ];
+            }
+
+            // Transferts récents (limite 3)
+            $transfertsRecents = $transfertRepo->findBy(
+                ['user' => $user, 'annule' => false],
+                ['date' => 'DESC'],
+                3
+            );
+            $transfertsData = [];
+            foreach ($transfertsRecents as $transfert) {
+                $transfertsData[] = [
+                    'id' => $transfert->getId(),
+                    'montant' => $transfert->getMontant(),
+                    'description' => $transfert->getDescription(),
+                    'date' => $transfert->getDate()->format('Y-m-d'),
+                    'compteSource' => $transfert->getCompteSource() ? [
+                        'id' => $transfert->getCompteSource()->getId(),
+                        'nom' => $transfert->getCompteSource()->getNom(),
+                    ] : null,
+                    'compteDestination' => $transfert->getCompteDestination() ? [
+                        'id' => $transfert->getCompteDestination()->getId(),
+                        'nom' => $transfert->getCompteDestination()->getNom(),
+                    ] : null,
+                ];
+            }
+
+            // Données du jour
+            $today = new \DateTime();
+            $todayStart = clone $today;
+            $todayStart->setTime(0, 0, 0);
+            $todayEnd = clone $today;
+            $todayEnd->setTime(23, 59, 59);
+
+            $depensesToday = $mouvementRepo->createQueryBuilder('m')
+                ->select('SUM(m.montantEffectif) as total, COUNT(m.id) as count')
+                ->where('m.user = :user')
+                ->andWhere('m.type = :type')
+                ->andWhere('m.date BETWEEN :start AND :end')
+                ->setParameter('user', $user)
+                ->setParameter('type', Mouvement::TYPE_SORTIE)
+                ->setParameter('start', $todayStart)
+                ->setParameter('end', $todayEnd)
+                ->getQuery()
+                ->getSingleResult();
+
+            $entreesToday = $mouvementRepo->createQueryBuilder('m')
+                ->select('SUM(m.montantEffectif) as total, COUNT(m.id) as count')
+                ->where('m.user = :user')
+                ->andWhere('m.type = :type')
+                ->andWhere('m.date BETWEEN :start AND :end')
+                ->setParameter('user', $user)
+                ->setParameter('type', Mouvement::TYPE_ENTREE)
+                ->setParameter('start', $todayStart)
+                ->setParameter('end', $todayEnd)
+                ->getQuery()
+                ->getSingleResult();
+
+            return new JsonResponse([
+                'success' => true,
+                'data' => [
+                    'solde' => [
+                        'total' => $soldeTotal,
+                        'devise' => $user->getDevise() ? [
+                            'id' => $user->getDevise()->getId(),
+                            'code' => $user->getDevise()->getCode(),
+                            'symbole' => $user->getDevise()->getNom(),
+                        ] : null,
+                    ],
+                    'statistiques' => $stats,
+                    'comptes' => $comptesData,
+                    'mouvementsRecents' => $mouvementsData,
+                    'dettesEnRetard' => $dettesData,
+                    'transfertsRecents' => $transfertsData,
+                    'aujourdhui' => [
+                        'depenses' => [
+                            'total' => $depensesToday['total'] ?? '0.00',
+                            'count' => $depensesToday['count'] ?? 0,
+                        ],
+                        'entrees' => [
+                            'total' => $entreesToday['total'] ?? '0.00',
+                            'count' => $entreesToday['count'] ?? 0,
+                        ],
+                    ],
+                ],
+            ]);
+
+        } catch (\Exception $e) {
+            return new JsonResponse([
+                'success' => false,
+                'error' => 'Erreur lors du chargement du dashboard',
+                'message' => $e->getMessage()
+            ], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
     #[Route('/solde', name: 'solde', methods: ['GET'])]
     public function getSolde(): JsonResponse
     {
@@ -169,7 +347,7 @@ class DashboardController extends AbstractController
                 'montant' => $mouvement->getMontantEffectif(),
                 'date' => $mouvement->getDate()->format('Y-m-d H:i:s'),
                 'description' => $mouvement->getDescription(),
-                'categorie' => $mouvement->getCategorie()->getNom(),
+                'categorie' => $mouvement->getCategorie()?->getNom(),
                 'depensePrevue' => $mouvement->getDepensePrevue()?->getNom(),
                 'contact' => $mouvement->getContact()?->getNom()
             ];
@@ -197,12 +375,12 @@ class DashboardController extends AbstractController
                 'id' => $dette->getId(),
                 'montantTotal' => $dette->getMontantTotal(),
                 'montantPrincipal' => $dette->getMontantPrincipal(),
-                'echeance' => $dette->getDateEcheance()->format('Y-m-d'),
+                'echeance' => $dette->getDateEcheance()?->format('Y-m-d'),
                 'taux' => $dette->getTauxInteret(),
                 'montantInterets' => $dette->getMontantInterets(),
                 'description' => $dette->getDescription(),
                 'contact' => $dette->getContact()?->getNom(),
-                'joursRetard' => $dette->getDateEcheance()->diff(new \DateTime())->days
+                'joursRetard' => $dette->getDateEcheance()?->diff(new \DateTime())->days ?? 0
             ];
         }
 
@@ -237,13 +415,13 @@ class DashboardController extends AbstractController
                 'soldeActuelFormatted' => $this->userDeviseService->formatAmount($user, $soldeActuel),
                 'soldeInitial' => $compte->getSoldeInitial(),
                 'soldeInitialFormatted' => $this->userDeviseService->formatAmount($user, (float) $compte->getSoldeInitial()),
-                'devise' => [
+                'devise' => $compte->getDevise() ? [
                     'id' => $compte->getDevise()->getId(),
                     'code' => $compte->getDevise()->getCode(),
                     'nom' => $compte->getDevise()->getNom()
-                ],
-                'dateCreation' => $compte->getDateCreation()->format('Y-m-d H:i:s'),
-                'dateModification' => $compte->getDateModification()->format('Y-m-d H:i:s')
+                ] : null,
+                'dateCreation' => $compte->getDateCreation()?->format('Y-m-d H:i:s'),
+                'dateModification' => $compte->getDateModification()?->format('Y-m-d H:i:s')
             ];
         }
 
@@ -277,19 +455,19 @@ class DashboardController extends AbstractController
                 'date' => $transfert->getDate()->format('Y-m-d H:i:s'),
                 'note' => $transfert->getNote(),
                 'annule' => $transfert->isAnnule(),
-                'compteSource' => [
+                'compteSource' => $transfert->getCompteSource() ? [
                     'id' => $transfert->getCompteSource()->getId(),
                     'nom' => $transfert->getCompteSource()->getNom()
-                ],
-                'compteDestination' => [
+                ] : null,
+                'compteDestination' => $transfert->getCompteDestination() ? [
                     'id' => $transfert->getCompteDestination()->getId(),
                     'nom' => $transfert->getCompteDestination()->getNom()
-                ],
-                'devise' => [
+                ] : null,
+                'devise' => $transfert->getDevise() ? [
                     'id' => $transfert->getDevise()->getId(),
                     'code' => $transfert->getDevise()->getCode(),
                     'nom' => $transfert->getDevise()->getNom()
-                ]
+                ] : null
             ];
         }
 
@@ -370,8 +548,8 @@ class DashboardController extends AbstractController
                     'montant' => $transfert->getMontant(),
                     'montantFormatted' => $this->userDeviseService->formatAmount($user, (float) $transfert->getMontant()),
                     'date' => $transfert->getDate()->format('Y-m-d H:i:s'),
-                    'compteSource' => $transfert->getCompteSource()->getNom(),
-                    'compteDestination' => $transfert->getCompteDestination()->getNom()
+                    'compteSource' => $transfert->getCompteSource()?->getNom(),
+                    'compteDestination' => $transfert->getCompteDestination()?->getNom()
                 ];
             }, $transfertsRecents),
             'mouvementsRecents' => array_map(function($mouvement) use ($user) {
@@ -383,7 +561,7 @@ class DashboardController extends AbstractController
                     'montantFormatted' => $this->userDeviseService->formatAmount($user, (float) $mouvement->getMontantEffectif()),
                     'date' => $mouvement->getDate()->format('Y-m-d H:i:s'),
                     'description' => $mouvement->getDescription(),
-                    'categorie' => $mouvement->getCategorie()->getNom()
+                    'categorie' => $mouvement->getCategorie()?->getNom()
                 ];
             }, $mouvementsRecents),
             'devise' => [
