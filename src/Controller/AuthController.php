@@ -190,7 +190,8 @@ class AuthController extends AbstractController
         // Construire l'URL complète de la photo si elle existe
         $photoUrl = null;
         if ($user->getPhoto()) {
-            $photoUrl = $_ENV['APP_URL'] . $user->getPhoto();
+      
+            $photoUrl = $user->getPhoto();
         }
 
         return new JsonResponse([
