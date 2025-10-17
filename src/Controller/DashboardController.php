@@ -71,7 +71,7 @@ class DashboardController extends AbstractController
                     'devise' => $compte->getDevise() ? [
                         'id' => $compte->getDevise()->getId(),
                         'code' => $compte->getDevise()->getCode(),
-                        'symbole' => $compte->getDevise()->getSymbole(),
+                        'symbole' => $compte->getDevise()->getCode(),
                     ] : null,
                 ];
             }
