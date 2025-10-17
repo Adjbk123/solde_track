@@ -18,6 +18,7 @@ class Don extends Mouvement
     {
         parent::__construct();
         $this->setType(Mouvement::TYPE_DON);
+        $this->setStatut(\App\Entity\StatutsMouvement::STATUT_DON_EFFECTUE);
     }
 
     // Les méthodes de Mouvement sont héritées automatiquement

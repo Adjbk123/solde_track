@@ -84,9 +84,9 @@ abstract class Mouvement
     #[ORM\JoinColumn(nullable: false)]
     private ?Categorie $categorie = null;
 
-    #[ORM\ManyToOne(targetEntity: Projet::class, inversedBy: 'mouvements')]
+    #[ORM\ManyToOne(targetEntity: DepensePrevue::class, inversedBy: 'mouvements')]
     #[ORM\JoinColumn(nullable: true)]
-    private ?Projet $projet = null;
+    private ?DepensePrevue $depensePrevue = null;
 
     #[ORM\ManyToOne(targetEntity: Contact::class, inversedBy: 'mouvements')]
     #[ORM\JoinColumn(nullable: true)]
@@ -252,14 +252,14 @@ abstract class Mouvement
         return $this;
     }
 
-    public function getProjet(): ?Projet
+    public function getDepensePrevue(): ?DepensePrevue
     {
-        return $this->projet;
+        return $this->depensePrevue;
     }
 
-    public function setProjet(?Projet $projet): static
+    public function setDepensePrevue(?DepensePrevue $depensePrevue): static
     {
-        $this->projet = $projet;
+        $this->depensePrevue = $depensePrevue;
 
         return $this;
     }

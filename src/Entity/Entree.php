@@ -33,6 +33,7 @@ class Entree extends Mouvement
     {
         parent::__construct();
         $this->setType(Mouvement::TYPE_ENTREE);
+        $this->setStatut(\App\Entity\StatutsMouvement::STATUT_ENTREE_CONFIRME);
     }
 
     // Les méthodes de Mouvement sont héritées automatiquement

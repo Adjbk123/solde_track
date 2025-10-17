@@ -64,8 +64,8 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\OneToMany(mappedBy: 'user', targetEntity: Mouvement::class, orphanRemoval: true)]
     private Collection $mouvements;
 
-    #[ORM\OneToMany(mappedBy: 'user', targetEntity: Projet::class, orphanRemoval: true)]
-    private Collection $projets;
+    #[ORM\OneToMany(mappedBy: 'user', targetEntity: DepensePrevue::class, orphanRemoval: true)]
+    private Collection $depensesPrevues;
 
     #[ORM\OneToMany(mappedBy: 'user', targetEntity: Categorie::class, orphanRemoval: true)]
     private Collection $categories;
@@ -86,7 +86,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     public function __construct()
     {
         $this->mouvements = new ArrayCollection();
-        $this->projets = new ArrayCollection();
+        $this->depensesPrevues = new ArrayCollection();
         $this->categories = new ArrayCollection();
         $this->contacts = new ArrayCollection();
         $this->comptes = new ArrayCollection();
@@ -262,28 +262,28 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     }
 
     /**
-     * @return Collection<int, Projet>
+     * @return Collection<int, DepensePrevue>
      */
-    public function getProjets(): Collection
+    public function getDepensesPrevues(): Collection
     {
-        return $this->projets;
+        return $this->depensesPrevues;
     }
 
-    public function addProjet(Projet $projet): static
+    public function addDepensePrevue(DepensePrevue $depensePrevue): static
     {
-        if (!$this->projets->contains($projet)) {
-            $this->projets->add($projet);
-            $projet->setUser($this);
+        if (!$this->depensesPrevues->contains($depensePrevue)) {
+            $this->depensesPrevues->add($depensePrevue);
+            $depensePrevue->setUser($this);
         }
 
         return $this;
     }
 
-    public function removeProjet(Projet $projet): static
+    public function removeDepensePrevue(DepensePrevue $depensePrevue): static
     {
-        if ($this->projets->removeElement($projet)) {
-            if ($projet->getUser() === $this) {
-                $projet->setUser(null);
+        if ($this->depensesPrevues->removeElement($depensePrevue)) {
+            if ($depensePrevue->getUser() === $this) {
+                $depensePrevue->setUser(null);
             }
         }
 
