@@ -11,14 +11,13 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Annotation\Route;
-use Symfony\Component\Serializer\SerializerInterface;
+// SerializerInterface supprimé car non nécessaire
 
 #[Route('/api/dettes', name: 'dettes_')]
 class DetteController extends AbstractController
 {
     public function __construct(
-        private DetteService $detteService,
-        private SerializerInterface $serializer
+        private DetteService $detteService
     ) {}
 
     /**

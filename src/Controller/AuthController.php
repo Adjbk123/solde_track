@@ -931,7 +931,7 @@ class AuthController extends AbstractController
                     'id' => $depensePrevue->getId(),
                     'nom' => $depensePrevue->getNom(),
                     'description' => $depensePrevue->getDescription(),
-                    'montantPrevu' => $depensePrevue->getMontantPrevu(),
+                    'montantPrevu' => $depensePrevue->getBudgetPrevu(),
                     'typeBudget' => $depensePrevue->getTypeBudget(),
                     'statut' => $depensePrevue->getStatut(),
                     'dateCreation' => $depensePrevue->getCreatedAt()->format('Y-m-d H:i:s')

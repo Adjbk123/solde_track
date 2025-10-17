@@ -486,13 +486,13 @@ class StatistiquesController extends AbstractController
             ];
         }
 
-        if ($mouvement->getProjet()) {
-            $data['projet'] = [
-                'id' => $mouvement->getProjet()->getId(),
-                'nom' => $mouvement->getProjet()->getNom(),
-                'description' => $mouvement->getProjet()->getDescription(),
-                'budgetPrevu' => $mouvement->getProjet()->getBudgetPrevu(),
-                'budgetPrevuFormatted' => $user ? $this->userDeviseService->formatAmount($user, (float) $mouvement->getProjet()->getBudgetPrevu()) : null,
+        if ($mouvement->getDepensePrevue()) {
+            $data['depensePrevue'] = [
+                'id' => $mouvement->getDepensePrevue()->getId(),
+                'nom' => $mouvement->getDepensePrevue()->getNom(),
+                'description' => $mouvement->getDepensePrevue()->getDescription(),
+                'montantPrevu' => $mouvement->getDepensePrevue()->getBudgetPrevu(),
+                'montantPrevuFormatted' => $user ? $this->userDeviseService->formatAmount($user, (float) $mouvement->getDepensePrevue()->getBudgetPrevu()) : null,
             ];
         }
 
@@ -528,13 +528,13 @@ class StatistiquesController extends AbstractController
             $data['methode'] = $mouvement->getMethode();
             $data['methodeLabel'] = $mouvement->getMethodeLabel();
         } elseif ($mouvement instanceof \App\Entity\Dette) {
-            $data['echeance'] = $mouvement->getEcheance()?->format('Y-m-d');
-            $data['taux'] = $mouvement->getTaux();
-            $data['montantRest'] = $mouvement->getMontantRest();
+            $data['echeance'] = $mouvement->getDateEcheance()?->format('Y-m-d');
+            $data['taux'] = $mouvement->getTauxInteret();
+            $data['montantPrincipal'] = $mouvement->getMontantPrincipal();
             $data['montantInterets'] = $mouvement->getMontantInterets();
-            $data['enRetard'] = $mouvement->isEnRetard();
+            $data['enRetard'] = $mouvement->getDateEcheance() < new \DateTime();
             if ($user) {
-                $data['montantRestFormatted'] = $this->userDeviseService->formatAmount($user, (float) $mouvement->getMontantRest());
+                $data['montantPrincipalFormatted'] = $this->userDeviseService->formatAmount($user, (float) $mouvement->getMontantPrincipal());
                 $data['montantInteretsFormatted'] = $this->userDeviseService->formatAmount($user, (float) $mouvement->getMontantInterets());
             }
         } elseif ($mouvement instanceof \App\Entity\Don) {

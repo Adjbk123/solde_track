@@ -59,8 +59,8 @@ class ExcelExportService
         // 4. Feuille Contacts
         $this->createContactsSheet($spreadsheet, $user);
         
-        // 5. Feuille Projets
-        $this->createProjetsSheet($spreadsheet, $user);
+        // 5. Feuille Dépenses Prévues
+        $this->createDepensesPrevuesSheet($spreadsheet, $user);
         
         // 6. Feuille Graphiques
         $this->createGraphiquesSheet($spreadsheet, $user, $dateDebut, $dateFin);
@@ -165,7 +165,7 @@ class ExcelExportService
         $sheet->setTitle('Mouvements');
         
         // En-têtes
-        $headers = ['ID', 'Date', 'Type', 'Description', 'Montant', 'Compte', 'Catégorie', 'Projet', 'Contact'];
+        $headers = ['ID', 'Date', 'Type', 'Description', 'Montant', 'Compte', 'Catégorie', 'Dépense Prévue', 'Contact'];
         $col = 'A';
         foreach ($headers as $header) {
             $sheet->setCellValue($col . '1', $header);
@@ -187,7 +187,7 @@ class ExcelExportService
             $sheet->setCellValue('E' . $row, number_format($mouvement->getMontant(), 2, ',', ' '));
             $sheet->setCellValue('F' . $row, $mouvement->getCompte()->getNom());
             $sheet->setCellValue('G' . $row, $mouvement->getCategorie() ? $mouvement->getCategorie()->getNom() : '');
-            $sheet->setCellValue('H' . $row, $mouvement->getProjet() ? $mouvement->getProjet()->getNom() : '');
+            $sheet->setCellValue('H' . $row, $mouvement->getDepensePrevue() ? $mouvement->getDepensePrevue()->getNom() : '');
             $sheet->setCellValue('I' . $row, $mouvement->getContact() ? $mouvement->getContact()->getNom() : '');
             $row++;
         }
@@ -296,15 +296,15 @@ class ExcelExportService
     }
 
     /**
-     * Crée la feuille Projets
+     * Crée la feuille Dépenses Prévues
      */
-    private function createProjetsSheet(Spreadsheet $spreadsheet, User $user): void
+    private function createDepensesPrevuesSheet(Spreadsheet $spreadsheet, User $user): void
     {
         $sheet = $spreadsheet->createSheet();
-        $sheet->setTitle('Projets');
+        $sheet->setTitle('Dépenses Prévues');
         
         // En-têtes
-        $headers = ['ID', 'Nom', 'Description', 'Budget Prévu', 'Dépense Actuelle', 'Date Création', 'Statut', 'Nombre Mouvements'];
+        $headers = ['ID', 'Nom', 'Description', 'Montant Prévu', 'Montant Dépensé', 'Date Création', 'Statut', 'Nombre Mouvements'];
         $col = 'A';
         foreach ($headers as $header) {
             $sheet->setCellValue($col . '1', $header);
@@ -314,19 +314,19 @@ class ExcelExportService
         $this->applyHeaderStyle($sheet, 'A1:H1');
         
         // Données
-        $projets = $this->entityManager->getRepository(\App\Entity\Projet::class)
+        $depensesPrevues = $this->entityManager->getRepository(\App\Entity\DepensePrevue::class)
             ->findBy(['user' => $user]);
         $row = 2;
         
-        foreach ($projets as $projet) {
-            $sheet->setCellValue('A' . $row, $projet->getId());
-            $sheet->setCellValue('B' . $row, $projet->getNom());
-            $sheet->setCellValue('C' . $row, $projet->getDescription() ?: '');
-            $sheet->setCellValue('D' . $row, number_format($projet->getBudgetPrevu(), 2, ',', ' '));
-            $sheet->setCellValue('E' . $row, number_format($projet->getDepenseActuelle(), 2, ',', ' '));
-            $sheet->setCellValue('F' . $row, $projet->getDateCreation()->format('d/m/Y'));
-            $sheet->setCellValue('G' . $row, $projet->getStatut());
-            $sheet->setCellValue('H' . $row, $projet->getMouvements()->count());
+        foreach ($depensesPrevues as $depensePrevue) {
+            $sheet->setCellValue('A' . $row, $depensePrevue->getId());
+            $sheet->setCellValue('B' . $row, $depensePrevue->getNom());
+            $sheet->setCellValue('C' . $row, $depensePrevue->getDescription() ?: '');
+            $sheet->setCellValue('D' . $row, number_format($depensePrevue->getBudgetPrevu(), 2, ',', ' '));
+            $sheet->setCellValue('E' . $row, number_format($depensePrevue->getMontantDepense(), 2, ',', ' '));
+            $sheet->setCellValue('F' . $row, $depensePrevue->getDateCreation()->format('d/m/Y'));
+            $sheet->setCellValue('G' . $row, $depensePrevue->getStatut());
+            $sheet->setCellValue('H' . $row, $depensePrevue->getMouvements()->count());
             $row++;
         }
         

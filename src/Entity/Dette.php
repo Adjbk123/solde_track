@@ -69,8 +69,7 @@ class Dette extends Mouvement
     #[ORM\Column(type: Types::DECIMAL, precision: 10, scale: 2, nullable: true)]
     private ?string $montantInterets = null;
 
-    #[ORM\Column(type: Types::DECIMAL, precision: 10, scale: 2, nullable: true)]
-    private ?string $montantTotal = null;
+    // montantTotal est hérité de Mouvement
 
     #[ORM\Column(type: Types::TEXT, nullable: true)]
     private ?string $notes = null;
@@ -209,16 +208,7 @@ class Dette extends Mouvement
         return $this;
     }
 
-    public function getMontantTotal(): ?string
-    {
-        return $this->montantTotal;
-    }
-
-    public function setMontantTotal(?string $montantTotal): static
-    {
-        $this->montantTotal = $montantTotal;
-        return $this;
-    }
+    // getMontantTotal() et setMontantTotal() sont hérités de Mouvement
 
     public function getNotes(): ?string
     {
@@ -296,8 +286,11 @@ class Dette extends Mouvement
         $principal = (float) $this->montantPrincipal;
         $taux = (float) $this->tauxInteret;
         $dateDebut = $this->getDate();
+        if (!$dateDebut) {
+            return '0.00';
+        }
+        
         $dateFin = $this->dateEcheance ?? new \DateTime();
-
         $jours = $dateFin->diff($dateDebut)->days;
 
         if ($this->typeCalculInteret === self::INTERET_COMPOSE) {
@@ -316,6 +309,10 @@ class Dette extends Mouvement
      */
     public function calculerMontantTotal(): string
     {
+        if (!$this->montantPrincipal) {
+            return '0.00';
+        }
+        
         $principal = (float) $this->montantPrincipal;
         $interets = (float) $this->calculerInterets();
         
@@ -327,8 +324,13 @@ class Dette extends Mouvement
      */
     public function calculerMontantRestant(): string
     {
-        $total = (float) $this->calculerMontantTotal();
-        $paye = (float) $this->getMontantEffectif();
+        $totalStr = $this->calculerMontantTotal();
+        if (!$totalStr || $totalStr === '0.00') {
+            return '0.00';
+        }
+        
+        $total = (float) $totalStr;
+        $paye = (float) ($this->getMontantEffectif() ?? '0');
         
         return number_format($total - $paye, 2, '.', '');
     }
@@ -365,7 +367,7 @@ class Dette extends Mouvement
     {
         if ($this->estEnRetard()) {
             $this->statutDette = self::STATUT_EN_RETARD;
-        } elseif ($this->calculerMontantRestant() <= 0) {
+        } elseif ((float) $this->calculerMontantRestant() <= 0) {
             $this->statutDette = self::STATUT_PAYEE;
         } else {
             $this->statutDette = self::STATUT_ACTIVE;
@@ -378,6 +380,6 @@ class Dette extends Mouvement
     public function mettreAJourMontants(): void
     {
         $this->montantInterets = $this->calculerInterets();
-        $this->montantTotal = $this->calculerMontantTotal();
+        $this->setMontantTotal($this->calculerMontantTotal());
     }
 }

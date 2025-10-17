@@ -6,7 +6,7 @@ use App\Entity\User;
 use App\Entity\Categorie;
 use App\Entity\Contact;
 use App\Entity\Compte;
-use App\Entity\Projet;
+use App\Entity\DepensePrevue;
 use Doctrine\ORM\EntityManagerInterface;
 
 class ValidationService
@@ -52,8 +52,8 @@ class ValidationService
             $erreurs[] = 'L\'ID du compte doit être un nombre';
         }
 
-        if (isset($donnees['projet_id']) && !is_numeric($donnees['projet_id'])) {
-            $erreurs[] = 'L\'ID du projet doit être un nombre';
+        if (isset($donnees['depense_prevue_id']) && !is_numeric($donnees['depense_prevue_id'])) {
+            $erreurs[] = 'L\'ID de la dépense prévue doit être un nombre';
         }
 
         return $erreurs;
@@ -194,25 +194,25 @@ class ValidationService
     }
 
     /**
-     * Vérifie qu'un projet existe et appartient à l'utilisateur
+     * Vérifie qu'une dépense prévue existe et appartient à l'utilisateur
      */
-    public function validerProjet(User $user, ?int $projetId): ?Projet
+    public function validerDepensePrevue(User $user, ?int $depensePrevueId): ?DepensePrevue
     {
-        if (!$projetId) {
+        if (!$depensePrevueId) {
             return null;
         }
 
-        $projet = $this->entityManager->getRepository(Projet::class)->find($projetId);
+        $depensePrevue = $this->entityManager->getRepository(DepensePrevue::class)->find($depensePrevueId);
         
-        if (!$projet) {
-            throw new \InvalidArgumentException('Projet non trouvé');
+        if (!$depensePrevue) {
+            throw new \InvalidArgumentException('Dépense prévue non trouvée');
         }
         
-        if ($projet->getUser() !== $user) {
-            throw new \InvalidArgumentException('Projet non autorisé');
+        if ($depensePrevue->getUser() !== $user) {
+            throw new \InvalidArgumentException('Dépense prévue non autorisée');
         }
         
-        return $projet;
+        return $depensePrevue;
     }
 
     /**
@@ -266,8 +266,8 @@ class ValidationService
             $donneesNettoyees['compte_id'] = (int) $donnees['compte_id'];
         }
 
-        if (isset($donnees['projet_id'])) {
-            $donneesNettoyees['projet_id'] = (int) $donnees['projet_id'];
+        if (isset($donnees['depense_prevue_id'])) {
+            $donneesNettoyees['depense_prevue_id'] = (int) $donnees['depense_prevue_id'];
         }
 
         // Nettoyer les champs spécifiques

@@ -57,10 +57,10 @@ class DashboardController extends AbstractController
         }
 
         // Dettes en retard
-        $dettesEnRetard = $this->entityManager->getRepository(Dette::class)->findEnRetard($user);
+        $dettesEnRetard = $this->entityManager->getRepository(Dette::class)->findDettesEnRetard($user);
         $totalDettesEnRetard = 0;
         foreach ($dettesEnRetard as $dette) {
-            $totalDettesEnRetard += (float) $dette->getMontantRest();
+            $totalDettesEnRetard += (float) $dette->getMontantPrincipal();
         }
 
         return new JsonResponse([
@@ -79,25 +79,25 @@ class DashboardController extends AbstractController
         ]);
     }
 
-    #[Route('/projets/soldes', name: 'projets_soldes', methods: ['GET'])]
-    public function getProjetsSoldes(): JsonResponse
+    #[Route('/depenses-prevues/soldes', name: 'depenses_prevues_soldes', methods: ['GET'])]
+    public function getDepensesPrevuesSoldes(): JsonResponse
     {
         $user = $this->getUser();
         if (!$user instanceof User) {
             return new JsonResponse(['error' => 'Non authentifié'], Response::HTTP_UNAUTHORIZED);
         }
 
-        $projets = $user->getProjets();
+        $depensesPrevues = $user->getDepensesPrevues();
         $mouvementRepo = $this->entityManager->getRepository(Mouvement::class);
         
-        $projetsSoldes = [];
-        foreach ($projets as $projet) {
-            $solde = $mouvementRepo->getSoldeProjet($user, $projet);
+        $depensesPrevuesSoldes = [];
+        foreach ($depensesPrevues as $depensePrevue) {
+            $solde = $mouvementRepo->getSoldeDepensePrevue($user, $depensePrevue);
             $mouvements = $mouvementRepo->createQueryBuilder('m')
                 ->where('m.user = :user')
-                ->andWhere('m.projet = :projet')
+                ->andWhere('m.depensePrevue = :depensePrevue')
                 ->setParameter('user', $user)
-                ->setParameter('projet', $projet)
+                ->setParameter('depensePrevue', $depensePrevue)
                 ->getQuery()
                 ->getResult();
 
@@ -113,11 +113,11 @@ class DashboardController extends AbstractController
                 }
             }
 
-            $projetsSoldes[] = [
-                'id' => $projet->getId(),
-                'nom' => $projet->getNom(),
-                'description' => $projet->getDescription(),
-                'budgetPrevu' => $projet->getBudgetPrevu(),
+            $depensesPrevuesSoldes[] = [
+                'id' => $depensePrevue->getId(),
+                'nom' => $depensePrevue->getNom(),
+                'description' => $depensePrevue->getDescription(),
+                'montantPrevu' => $depensePrevue->getBudgetPrevu(),
                 'solde' => number_format($solde, 2, '.', ''),
                 'totalDepenses' => number_format($totalDepenses, 2, '.', ''),
                 'totalEntrees' => number_format($totalEntrees, 2, '.', ''),
@@ -126,7 +126,7 @@ class DashboardController extends AbstractController
         }
 
         return new JsonResponse([
-            'projets' => $projetsSoldes
+            'depensesPrevues' => $depensesPrevuesSoldes
         ]);
     }
 
@@ -170,7 +170,7 @@ class DashboardController extends AbstractController
                 'date' => $mouvement->getDate()->format('Y-m-d H:i:s'),
                 'description' => $mouvement->getDescription(),
                 'categorie' => $mouvement->getCategorie()->getNom(),
-                'projet' => $mouvement->getProjet()?->getNom(),
+                'depensePrevue' => $mouvement->getDepensePrevue()?->getNom(),
                 'contact' => $mouvement->getContact()?->getNom()
             ];
         }
@@ -189,20 +189,20 @@ class DashboardController extends AbstractController
             return new JsonResponse(['error' => 'Non authentifié'], Response::HTTP_UNAUTHORIZED);
         }
 
-        $dettesEnRetard = $this->entityManager->getRepository(Dette::class)->findEnRetard($user);
+        $dettesEnRetard = $this->entityManager->getRepository(Dette::class)->findDettesEnRetard($user);
         
         $dettes = [];
         foreach ($dettesEnRetard as $dette) {
             $dettes[] = [
                 'id' => $dette->getId(),
                 'montantTotal' => $dette->getMontantTotal(),
-                'montantRest' => $dette->getMontantRest(),
-                'echeance' => $dette->getEcheance()->format('Y-m-d'),
-                'taux' => $dette->getTaux(),
+                'montantPrincipal' => $dette->getMontantPrincipal(),
+                'echeance' => $dette->getDateEcheance()->format('Y-m-d'),
+                'taux' => $dette->getTauxInteret(),
                 'montantInterets' => $dette->getMontantInterets(),
                 'description' => $dette->getDescription(),
                 'contact' => $dette->getContact()?->getNom(),
-                'joursRetard' => $dette->getEcheance()->diff(new \DateTime())->days
+                'joursRetard' => $dette->getDateEcheance()->diff(new \DateTime())->days
             ];
         }
 
@@ -322,10 +322,10 @@ class DashboardController extends AbstractController
         }
 
         // Dettes en retard
-        $dettesEnRetard = $this->entityManager->getRepository(Dette::class)->findEnRetard($user);
+        $dettesEnRetard = $this->entityManager->getRepository(Dette::class)->findDettesEnRetard($user);
         $totalDettesEnRetard = 0;
         foreach ($dettesEnRetard as $dette) {
-            $totalDettesEnRetard += (float) $dette->getMontantRest();
+            $totalDettesEnRetard += (float) $dette->getMontantPrincipal();
         }
 
         // Transferts récents

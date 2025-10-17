@@ -179,10 +179,10 @@ class ExportController extends AbstractController
                     'parameters' => []
                 ],
                 [
-                    'type' => 'projets_csv',
-                    'name' => 'Export Projets CSV',
-                    'description' => 'Export CSV de tous les projets',
-                    'endpoint' => '/api/export/projets/csv',
+                    'type' => 'depenses_prevues_csv',
+                    'name' => 'Export Dépenses Prévues CSV',
+                    'description' => 'Export CSV de toutes les dépenses prévues',
+                    'endpoint' => '/api/export/depenses-prevues/csv',
                     'parameters' => []
                 ],
                 [
@@ -298,8 +298,8 @@ class ExportController extends AbstractController
         }
     }
 
-    #[Route('/projets/csv', name: 'projets_csv', methods: ['GET'])]
-    public function exportProjetsCsv(): Response
+    #[Route('/depenses-prevues/csv', name: 'depenses_prevues_csv', methods: ['GET'])]
+    public function exportDepensesPrevuesCsv(): Response
     {
         $user = $this->getUser();
         if (!$user instanceof User) {
@@ -307,11 +307,11 @@ class ExportController extends AbstractController
         }
 
         try {
-            return $this->csvExportService->exportProjets($user);
+            return $this->csvExportService->exportDepensesPrevues($user);
         } catch (\Exception $e) {
             return new JsonResponse([
                 'error' => 'Erreur lors de la génération du CSV',
-                'message' => 'Une erreur est survenue lors de l\'export des projets'
+                'message' => 'Une erreur est survenue lors de l\'export des dépenses prévues'
             ], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
     }

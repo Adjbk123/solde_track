@@ -93,18 +93,18 @@ class CsvExportService
     }
 
     /**
-     * Export des projets en CSV
+     * Export des dépenses prévues en CSV
      */
-    public function exportProjets(User $user): Response
+    public function exportDepensesPrevues(User $user): Response
     {
-        $projets = $this->entityManager->getRepository(\App\Entity\Projet::class)
+        $depensesPrevues = $this->entityManager->getRepository(\App\Entity\DepensePrevue::class)
             ->findBy(['user' => $user]);
 
-        $csvContent = $this->generateProjetsCsv($projets);
+        $csvContent = $this->generateDepensesPrevuesCsv($depensesPrevues);
 
         $response = new Response($csvContent);
         $response->headers->set('Content-Type', 'text/csv; charset=utf-8');
-        $response->headers->set('Content-Disposition', 'attachment; filename="projets-' . date('Y-m-d') . '.csv"');
+        $response->headers->set('Content-Disposition', 'attachment; filename="depenses-prevues-' . date('Y-m-d') . '.csv"');
         $response->headers->set('Cache-Control', 'private, max-age=0, must-revalidate');
 
         return $response;
@@ -115,7 +115,7 @@ class CsvExportService
      */
     private function generateMouvementsCsv(array $mouvements, User $user): string
     {
-        $csv = "ID,Date,Type,Description,Montant,Compte,Catégorie,Projet,Contact,Créé le\n";
+        $csv = "ID,Date,Type,Description,Montant,Compte,Catégorie,Dépense Prévue,Contact,Créé le\n";
 
         foreach ($mouvements as $mouvement) {
             $csv .= sprintf(
@@ -127,7 +127,7 @@ class CsvExportService
                 number_format($mouvement->getMontant(), 2, ',', ' '),
                 $this->escapeCsv($mouvement->getCompte()->getNom()),
                 $this->escapeCsv($mouvement->getCategorie() ? $mouvement->getCategorie()->getNom() : ''),
-                $this->escapeCsv($mouvement->getProjet() ? $mouvement->getProjet()->getNom() : ''),
+                $this->escapeCsv($mouvement->getDepensePrevue() ? $mouvement->getDepensePrevue()->getNom() : ''),
                 $this->escapeCsv($mouvement->getContact() ? $mouvement->getContact()->getNom() : ''),
                 $mouvement->getDateCreation()->format('Y-m-d H:i:s')
             );
@@ -188,23 +188,23 @@ class CsvExportService
     }
 
     /**
-     * Génère le CSV des projets
+     * Génère le CSV des dépenses prévues
      */
-    private function generateProjetsCsv(array $projets): string
+    private function generateDepensesPrevuesCsv(array $depensesPrevues): string
     {
-        $csv = "ID,Nom,Description,Budget Prévu,Dépense Actuelle,Date Création,Statut,Nombre Mouvements\n";
+        $csv = "ID,Nom,Description,Montant Prévu,Montant Dépensé,Date Création,Statut,Nombre Mouvements\n";
 
-        foreach ($projets as $projet) {
+        foreach ($depensesPrevues as $depensePrevue) {
             $csv .= sprintf(
                 "%d,%s,%s,%s,%s,%s,%s,%d\n",
-                $projet->getId(),
-                $this->escapeCsv($projet->getNom()),
-                $this->escapeCsv($projet->getDescription() ?: ''),
-                number_format($projet->getBudgetPrevu(), 2, ',', ' '),
-                number_format($projet->getDepenseActuelle(), 2, ',', ' '),
-                $projet->getDateCreation()->format('Y-m-d H:i:s'),
-                $this->escapeCsv($projet->getStatut()),
-                $projet->getMouvements()->count()
+                $depensePrevue->getId(),
+                $this->escapeCsv($depensePrevue->getNom()),
+                $this->escapeCsv($depensePrevue->getDescription() ?: ''),
+                number_format($depensePrevue->getBudgetPrevu(), 2, ',', ' '),
+                number_format($depensePrevue->getMontantDepense(), 2, ',', ' '),
+                $depensePrevue->getDateCreation()->format('Y-m-d H:i:s'),
+                $this->escapeCsv($depensePrevue->getStatut()),
+                $depensePrevue->getMouvements()->count()
             );
         }
 

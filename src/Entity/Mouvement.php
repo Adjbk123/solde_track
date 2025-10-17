@@ -96,8 +96,8 @@ abstract class Mouvement
     #[ORM\JoinColumn(nullable: false)]
     private ?Compte $compte = null;
 
-    #[ORM\OneToMany(mappedBy: 'mouvement', targetEntity: Paiement::class, orphanRemoval: true)]
-    private Collection $paiements;
+    // Les paiements sont gérés par les entités spécialisées (Dette, etc.)
+    // Cette relation a été supprimée car Paiement n'existe plus
 
     public function __construct()
     {
@@ -106,7 +106,7 @@ abstract class Mouvement
         $this->updatedAt = new \DateTime();
         $this->montantEffectif = '0.00';
         $this->statut = self::STATUT_NON_PAYE;
-        $this->paiements = new ArrayCollection();
+        // Les paiements sont gérés par les entités spécialisées
     }
 
     public function getId(): ?int
@@ -316,32 +316,6 @@ abstract class Mouvement
         }
     }
 
-    /**
-     * @return Collection<int, Paiement>
-     */
-    public function getPaiements(): Collection
-    {
-        return $this->paiements;
-    }
-
-    public function addPaiement(Paiement $paiement): static
-    {
-        if (!$this->paiements->contains($paiement)) {
-            $this->paiements->add($paiement);
-            $paiement->setMouvement($this);
-        }
-
-        return $this;
-    }
-
-    public function removePaiement(Paiement $paiement): static
-    {
-        if ($this->paiements->removeElement($paiement)) {
-            if ($paiement->getMouvement() === $this) {
-                $paiement->setMouvement(null);
-            }
-        }
-
-        return $this;
-    }
+    // Les méthodes de paiement ont été supprimées car Paiement n'existe plus
+    // Les paiements sont maintenant gérés par les entités spécialisées (Dette, etc.)
 }

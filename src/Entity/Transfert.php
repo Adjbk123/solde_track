@@ -43,10 +43,14 @@ class Transfert
     #[ORM\Column(type: Types::DATETIME_MUTABLE)]
     private ?\DateTimeInterface $dateCreation = null;
 
+    #[ORM\Column(type: Types::BOOLEAN)]
+    private bool $annule = false;
+
     public function __construct()
     {
         $this->date = new \DateTime();
         $this->dateCreation = new \DateTime();
+        $this->annule = false;
     }
 
     public function getId(): ?int
@@ -227,11 +231,25 @@ class Transfert
         // Mettre à jour les dates de modification
         $this->compteSource->setDateModification(new \DateTime());
         $this->compteDestination->setDateModification(new \DateTime());
+        
+        // Marquer le transfert comme annulé
+        $this->annule = true;
     }
 
     /**
      * Retourne une description du transfert
      */
+    public function isAnnule(): bool
+    {
+        return $this->annule;
+    }
+
+    public function setAnnule(bool $annule): static
+    {
+        $this->annule = $annule;
+        return $this;
+    }
+
     public function getDescription(): string
     {
         return sprintf(

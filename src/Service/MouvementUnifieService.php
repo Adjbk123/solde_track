@@ -113,9 +113,9 @@ class MouvementUnifieService
             throw new \InvalidArgumentException('Impossible de supprimer une dette avec des paiements associés');
         }
 
-        // Mettre à jour le projet avant suppression
-        if ($mouvement->getProjet()) {
-            $this->mettreAJourProjet($mouvement->getProjet());
+        // Mettre à jour la dépense prévue avant suppression
+        if ($mouvement->getDepensePrevue()) {
+            $this->mettreAJourDepensePrevue($mouvement->getDepensePrevue());
         }
 
         $this->entityManager->remove($mouvement);
