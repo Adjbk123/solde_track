@@ -818,9 +818,28 @@ class AuthController extends AbstractController
             ] : null,
             'compte' => [
                 'dateCreation' => $user->getDateCreation()->format('Y-m-d H:i:s'),
-                'joursActif' => $user->getDateCreation()->diff(new \DateTime())->days
+                'joursActif' => $this->calculerJoursActifs($user)
             ]
         ]);
+    }
+
+    /**
+     * Calcule le nombre de jours d'activité de l'utilisateur
+     */
+    private function calculerJoursActifs(User $user): int
+    {
+        $mouvementRepo = $this->entityManager->getRepository(\App\Entity\Mouvement::class);
+        
+        // Récupérer toutes les dates distinctes où l'utilisateur a eu des mouvements
+        $datesActives = $mouvementRepo->createQueryBuilder('m')
+            ->select('DISTINCT DATE(m.date) as date')
+            ->where('m.user = :user')
+            ->setParameter('user', $user)
+            ->orderBy('date', 'ASC')
+            ->getQuery()
+            ->getResult();
+        
+        return count($datesActives);
     }
 
     #[Route('/preferences', name: 'preferences', methods: ['GET'])]
