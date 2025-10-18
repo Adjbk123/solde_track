@@ -168,6 +168,12 @@ class DepensePrevueController extends AbstractController
             $limit = (int) $request->query->get('limit', 20);
 
             $result = $this->depensePrevueService->listDepensesPrevues($user, $filtres, $page, $limit);
+            
+            // Recalculer les statistiques pour chaque dépense prévue
+            foreach ($result['depensesPrevues'] as $depensePrevue) {
+                $this->depensePrevueService->recalculerMontantDepense($depensePrevue);
+            }
+            
             $serializedDepenses = array_map([$this, 'serialiserDepensePrevue'], $result['depensesPrevues']);
 
             return ResponseService::paginated(
