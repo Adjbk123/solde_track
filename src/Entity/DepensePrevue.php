@@ -83,6 +83,12 @@ class DepensePrevue
     #[ORM\Column(type: Types::DATETIME_MUTABLE)]
     private ?\DateTimeInterface $dateCreation = null;
 
+    #[ORM\Column(type: Types::DATETIME_MUTABLE)]
+    private ?\DateTimeInterface $createdAt = null;
+
+    #[ORM\Column(type: Types::DATETIME_MUTABLE)]
+    private ?\DateTimeInterface $updatedAt = null;
+
     #[ORM\OneToMany(mappedBy: 'depensePrevue', targetEntity: Mouvement::class)]
     private Collection $mouvements;
 
@@ -439,5 +445,21 @@ class DepensePrevue
             self::TYPE_BUDGET_ESTIME => "Montant estimé : {$montant}",
             default => $montant
         };
+    }
+
+    /**
+     * Retourne la date de création
+     */
+    public function getCreatedAt(): ?\DateTimeInterface
+    {
+        return $this->createdAt;
+    }
+
+    /**
+     * Retourne la date de modification
+     */
+    public function getUpdatedAt(): ?\DateTimeInterface
+    {
+        return $this->updatedAt;
     }
 }
