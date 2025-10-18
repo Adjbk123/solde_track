@@ -425,7 +425,7 @@ class NotificationController extends AbstractController
     /**
      * Créer une notification de test
      */
-    #[Route('/test', name: 'create_test', methods: ['POST'])]
+    #[Route('/create-test', name: 'create_test', methods: ['POST'])]
     public function createTestNotification(Request $request): JsonResponse
     {
         $user = $this->getUser();

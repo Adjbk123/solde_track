@@ -5,6 +5,7 @@ namespace App\Controller;
 use App\Entity\DepensePrevue;
 use App\Entity\User;
 use App\Service\DepensePrevueService;
+use App\Service\MouvementUnifieService;
 use App\Service\ResponseService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -18,7 +19,8 @@ class DepensePrevueController extends AbstractController
 {
     public function __construct(
         private EntityManagerInterface $entityManager,
-        private DepensePrevueService $depensePrevueService
+        private DepensePrevueService $depensePrevueService,
+        private MouvementUnifieService $mouvementUnifieService
     ) {}
 
     /**
@@ -295,8 +297,7 @@ class DepensePrevueController extends AbstractController
             $donnees['depense_prevue_id'] = $id;
 
             // Créer le mouvement via le service unifié
-            $mouvementUnifieService = $this->container->get(\App\Service\MouvementUnifieService::class);
-            $mouvement = $mouvementUnifieService->creerMouvement($user, $donnees['type'], $donnees);
+            $mouvement = $this->mouvementUnifieService->creerMouvement($user, $donnees['type'], $donnees);
 
             return ResponseService::created([
                 'mouvement' => $this->serialiserMouvement($mouvement),
