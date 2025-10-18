@@ -67,6 +67,9 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\OneToMany(mappedBy: 'user', targetEntity: DepensePrevue::class, orphanRemoval: true)]
     private Collection $depensesPrevues;
 
+    #[ORM\OneToMany(mappedBy: 'user', targetEntity: Notification::class, orphanRemoval: true)]
+    private Collection $notifications;
+
     #[ORM\OneToMany(mappedBy: 'user', targetEntity: Categorie::class, orphanRemoval: true)]
     private Collection $categories;
 
@@ -91,6 +94,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         $this->contacts = new ArrayCollection();
         $this->comptes = new ArrayCollection();
         $this->transferts = new ArrayCollection();
+        $this->notifications = new ArrayCollection();
         $this->dateCreation = new \DateTime();
         $this->createdAt = new \DateTime();
         $this->updatedAt = new \DateTime();
@@ -457,6 +461,36 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     public function setFcmToken(?string $fcmToken): static
     {
         $this->fcmToken = $fcmToken;
+
+        return $this;
+    }
+
+    /**
+     * @return Collection<int, Notification>
+     */
+    public function getNotifications(): Collection
+    {
+        return $this->notifications;
+    }
+
+    public function addNotification(Notification $notification): static
+    {
+        if (!$this->notifications->contains($notification)) {
+            $this->notifications->add($notification);
+            $notification->setUser($this);
+        }
+
+        return $this;
+    }
+
+    public function removeNotification(Notification $notification): static
+    {
+        if ($this->notifications->removeElement($notification)) {
+            // set the owning side to null (unless already changed)
+            if ($notification->getUser() === $this) {
+                $notification->setUser(null);
+            }
+        }
 
         return $this;
     }

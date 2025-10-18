@@ -3,6 +3,8 @@
 namespace App\Controller;
 
 use App\Entity\User;
+use App\Entity\Notification;
+use App\Repository\NotificationRepository;
 use App\Service\NotificationService;
 use App\Service\PushNotificationService;
 use Doctrine\ORM\EntityManagerInterface;
@@ -20,7 +22,8 @@ class NotificationController extends AbstractController
     public function __construct(
         private EntityManagerInterface $entityManager,
         private NotificationService $notificationService,
-        private PushNotificationService $pushNotificationService
+        private PushNotificationService $pushNotificationService,
+        private NotificationRepository $notificationRepository
     ) {}
 
     /**
@@ -249,6 +252,217 @@ class NotificationController extends AbstractController
 
         return new JsonResponse([
             'types' => $types
+        ]);
+    }
+
+    /**
+     * Récupérer les notifications de l'utilisateur avec pagination
+     */
+    #[Route('', name: 'list', methods: ['GET'])]
+    public function getNotifications(Request $request): JsonResponse
+    {
+        $user = $this->getUser();
+        if (!$user instanceof User) {
+            return new JsonResponse(['error' => 'Utilisateur non trouvé'], Response::HTTP_UNAUTHORIZED);
+        }
+
+        $page = (int) $request->query->get('page', 1);
+        $limit = (int) $request->query->get('limit', 20);
+        $isRead = $request->query->get('is_read');
+        
+        // Convertir is_read en booléen si fourni
+        $isReadFilter = null;
+        if ($isRead !== null) {
+            $isReadFilter = filter_var($isRead, FILTER_VALIDATE_BOOLEAN);
+        }
+
+        $notifications = $this->notificationRepository->findByUser($user, $page, $limit, $isReadFilter);
+        
+        $formattedNotifications = array_map(function (Notification $notification) {
+            return [
+                'id' => $notification->getId(),
+                'type' => $notification->getType(),
+                'title' => $notification->getTitle(),
+                'message' => $notification->getMessage(),
+                'data' => $notification->getData(),
+                'is_read' => $notification->isIsRead(),
+                'created_at' => $notification->getCreatedAt()->format('Y-m-d H:i:s'),
+                'read_at' => $notification->getReadAt()?->format('Y-m-d H:i:s'),
+            ];
+        }, $notifications);
+
+        return new JsonResponse([
+            'notifications' => $formattedNotifications,
+            'pagination' => [
+                'page' => $page,
+                'limit' => $limit,
+                'total' => count($formattedNotifications)
+            ]
+        ]);
+    }
+
+    /**
+     * Récupérer le nombre de notifications non lues
+     */
+    #[Route('/unread-count', name: 'unread_count', methods: ['GET'])]
+    public function getUnreadCount(): JsonResponse
+    {
+        $user = $this->getUser();
+        if (!$user instanceof User) {
+            return new JsonResponse(['error' => 'Utilisateur non trouvé'], Response::HTTP_UNAUTHORIZED);
+        }
+
+        $count = $this->notificationRepository->countUnreadByUser($user);
+
+        return new JsonResponse([
+            'count' => $count
+        ]);
+    }
+
+    /**
+     * Marquer une notification comme lue
+     */
+    #[Route('/{id}/read', name: 'mark_read', methods: ['PUT'])]
+    public function markAsRead(int $id): JsonResponse
+    {
+        $user = $this->getUser();
+        if (!$user instanceof User) {
+            return new JsonResponse(['error' => 'Utilisateur non trouvé'], Response::HTTP_UNAUTHORIZED);
+        }
+
+        $notification = $this->notificationRepository->find($id);
+        
+        if (!$notification) {
+            return new JsonResponse(['error' => 'Notification non trouvée'], Response::HTTP_NOT_FOUND);
+        }
+
+        // Vérifier que la notification appartient à l'utilisateur
+        if ($notification->getUser() !== $user) {
+            return new JsonResponse(['error' => 'Accès non autorisé'], Response::HTTP_FORBIDDEN);
+        }
+
+        $notification->markAsRead();
+        $this->entityManager->flush();
+
+        return new JsonResponse([
+            'message' => 'Notification marquée comme lue',
+            'notification' => [
+                'id' => $notification->getId(),
+                'is_read' => $notification->isIsRead(),
+                'read_at' => $notification->getReadAt()?->format('Y-m-d H:i:s'),
+            ]
+        ]);
+    }
+
+    /**
+     * Marquer toutes les notifications comme lues
+     */
+    #[Route('/mark-all-read', name: 'mark_all_read', methods: ['PUT'])]
+    public function markAllAsRead(): JsonResponse
+    {
+        $user = $this->getUser();
+        if (!$user instanceof User) {
+            return new JsonResponse(['error' => 'Utilisateur non trouvé'], Response::HTTP_UNAUTHORIZED);
+        }
+
+        $updatedCount = $this->notificationRepository->markAllAsReadByUser($user);
+
+        return new JsonResponse([
+            'message' => 'Toutes les notifications marquées comme lues',
+            'updated_count' => $updatedCount
+        ]);
+    }
+
+    /**
+     * Supprimer une notification
+     */
+    #[Route('/{id}', name: 'delete', methods: ['DELETE'])]
+    public function deleteNotification(int $id): JsonResponse
+    {
+        $user = $this->getUser();
+        if (!$user instanceof User) {
+            return new JsonResponse(['error' => 'Utilisateur non trouvé'], Response::HTTP_UNAUTHORIZED);
+        }
+
+        $notification = $this->notificationRepository->find($id);
+        
+        if (!$notification) {
+            return new JsonResponse(['error' => 'Notification non trouvée'], Response::HTTP_NOT_FOUND);
+        }
+
+        // Vérifier que la notification appartient à l'utilisateur
+        if ($notification->getUser() !== $user) {
+            return new JsonResponse(['error' => 'Accès non autorisé'], Response::HTTP_FORBIDDEN);
+        }
+
+        $this->entityManager->remove($notification);
+        $this->entityManager->flush();
+
+        return new JsonResponse([
+            'message' => 'Notification supprimée avec succès'
+        ]);
+    }
+
+    /**
+     * Supprimer toutes les notifications lues
+     */
+    #[Route('/delete-read', name: 'delete_read', methods: ['DELETE'])]
+    public function deleteReadNotifications(): JsonResponse
+    {
+        $user = $this->getUser();
+        if (!$user instanceof User) {
+            return new JsonResponse(['error' => 'Utilisateur non trouvé'], Response::HTTP_UNAUTHORIZED);
+        }
+
+        $deletedCount = $this->notificationRepository->deleteReadByUser($user);
+
+        return new JsonResponse([
+            'message' => 'Notifications lues supprimées',
+            'deleted_count' => $deletedCount
+        ]);
+    }
+
+    /**
+     * Créer une notification de test
+     */
+    #[Route('/test', name: 'create_test', methods: ['POST'])]
+    public function createTestNotification(Request $request): JsonResponse
+    {
+        $user = $this->getUser();
+        if (!$user instanceof User) {
+            return new JsonResponse(['error' => 'Utilisateur non trouvé'], Response::HTTP_UNAUTHORIZED);
+        }
+
+        $data = json_decode($request->getContent(), true);
+        $type = $data['type'] ?? Notification::TYPE_SYSTEM;
+        $title = $data['title'] ?? 'Test de notification';
+        $message = $data['message'] ?? 'Ceci est une notification de test';
+        $notificationData = $data['data'] ?? null;
+
+        // Valider le type
+        if (!in_array($type, array_keys(Notification::TYPES))) {
+            $type = Notification::TYPE_SYSTEM;
+        }
+
+        $notification = new Notification();
+        $notification->setUser($user);
+        $notification->setType($type);
+        $notification->setTitle($title);
+        $notification->setMessage($message);
+        $notification->setData($notificationData);
+
+        $this->entityManager->persist($notification);
+        $this->entityManager->flush();
+
+        return new JsonResponse([
+            'message' => 'Notification de test créée avec succès',
+            'notification' => [
+                'id' => $notification->getId(),
+                'type' => $notification->getType(),
+                'title' => $notification->getTitle(),
+                'message' => $notification->getMessage(),
+                'created_at' => $notification->getCreatedAt()->format('Y-m-d H:i:s'),
+            ]
         ]);
     }
 }

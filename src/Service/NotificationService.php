@@ -3,10 +3,11 @@
 namespace App\Service;
 
 use App\Entity\User;
+use App\Entity\Notification;
 use App\Entity\Mouvement;
 use App\Entity\Dette;
 use App\Entity\Depense;
-use App\Entity\Projet;
+use App\Entity\DepensePrevue;
 use App\Entity\Compte;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\HttpClient\HttpClient;
@@ -410,9 +411,9 @@ class NotificationService
         $debtRepository = $this->entityManager->getRepository(Dette::class);
         
         $overdueDebts = $debtRepository->createQueryBuilder('d')
-            ->where('d.statut = :statut')
-            ->andWhere('d.echeance < :today')
-            ->setParameter('statut', 'en_attente')
+            ->where('d.statutDette = :statut')
+            ->andWhere('d.dateEcheance < :today')
+            ->setParameter('statut', Dette::STATUT_ACTIVE)
             ->setParameter('today', $today)
             ->getQuery()
             ->getResult();
@@ -423,7 +424,7 @@ class NotificationService
             
             $data = [
                 'debt_id' => $debt->getId(),
-                'amount' => $debt->getMontantRestant(),
+                'amount' => $debt->getMontantTotal(),
                 'name' => $debt->getContact() ? $debt->getContact()->getNom() : 'quelqu\'un',
                 'due_date' => $debt->getDateEcheance()->format('d/m/Y'),
                 'days_left' => -$daysOverdue,
@@ -439,55 +440,43 @@ class NotificationService
     }
 
     /**
-     * Vérifie et envoie les notifications de projets en dépassement
+     * Vérifie et envoie les notifications de dépenses prévues en dépassement
      */
     public function checkAndSendProjectAlerts(): int
     {
-        $projectRepository = $this->entityManager->getRepository(Projet::class);
+        $depensePrevueRepository = $this->entityManager->getRepository(DepensePrevue::class);
         
-        $projects = $projectRepository->createQueryBuilder('p')
+        $depensesPrevues = $depensePrevueRepository->createQueryBuilder('dp')
+            ->where('dp.statut IN (:statuts)')
+            ->setParameter('statuts', [DepensePrevue::STATUT_EN_COURS, DepensePrevue::STATUT_PLANIFIE])
             ->getQuery()
             ->getResult();
 
         $sentCount = 0;
-        foreach ($projects as $project) {
-            $totalSpent = $this->calculateProjectTotalSpent($project);
-            $budget = $project->getBudgetPrevu();
+        foreach ($depensesPrevues as $depensePrevue) {
+            $budgetPrevu = $depensePrevue->getBudgetPrevu();
+            $montantDepense = $depensePrevue->getMontantDepense();
             
-            if ($budget && $totalSpent > (float) $budget) {
-                $budgetFloat = (float) $budget;
-                $percentage = round((($totalSpent - $budgetFloat) / $budgetFloat) * 100, 1);
-                $excessAmount = $totalSpent - $budgetFloat;
+            if ($budgetPrevu && $montantDepense > (float) $budgetPrevu) {
+                $budgetFloat = (float) $budgetPrevu;
+                $percentage = round((($montantDepense - $budgetFloat) / $budgetFloat) * 100, 1);
+                $excessAmount = $montantDepense - $budgetFloat;
                 
                 $data = [
-                    'project_id' => $project->getId(),
-                    'project_name' => $project->getNom(),
+                    'project_id' => $depensePrevue->getId(),
+                    'project_name' => $depensePrevue->getNom(),
                     'percentage' => $percentage,
                     'amount' => $excessAmount,
-                    'currency' => $project->getUser()->getDevise() ? $project->getUser()->getDevise()->getCode() : 'XOF'
+                    'currency' => $depensePrevue->getUser()->getDevise() ? $depensePrevue->getUser()->getDevise()->getCode() : 'XOF'
                 ];
 
-                if ($this->sendNotification($project->getUser(), 'PROJECT_ALERT', $data)) {
+                if ($this->sendNotification($depensePrevue->getUser(), 'PROJECT_ALERT', $data)) {
                     $sentCount++;
                 }
             }
         }
 
         return $sentCount;
-    }
-
-    /**
-     * Calcule le total des dépenses d'un projet
-     */
-    private function calculateProjectTotalSpent(Projet $project): float
-    {
-        $total = 0;
-        foreach ($project->getMouvements() as $mouvement) {
-            if ($mouvement instanceof Depense) {
-                $total += (float) $mouvement->getMontantTotal();
-            }
-        }
-        return $total;
     }
 
     /**
@@ -612,5 +601,175 @@ class NotificationService
             ->getSingleScalarResult() ?? 0;
         
         return max(0, $incomes - $expenses);
+    }
+
+    /**
+     * Crée une notification en base de données
+     */
+    public function createNotification(
+        User $user, 
+        string $type, 
+        string $title, 
+        string $message, 
+        array $data = []
+    ): Notification {
+        $notification = new Notification();
+        $notification->setUser($user);
+        $notification->setType($type);
+        $notification->setTitle($title);
+        $notification->setMessage($message);
+        $notification->setData($data);
+
+        $this->entityManager->persist($notification);
+        $this->entityManager->flush();
+
+        return $notification;
+    }
+
+    /**
+     * Crée et envoie une notification (push + base de données)
+     */
+    public function createAndSendNotification(
+        User $user, 
+        string $type, 
+        string $title, 
+        string $message, 
+        array $data = []
+    ): bool {
+        // Créer la notification en base de données
+        $notification = $this->createNotification($user, $type, $title, $message, $data);
+
+        // Envoyer la notification push si le token FCM est disponible
+        $pushSent = false;
+        if ($user->getFcmToken()) {
+            $pushSent = $this->sendNotification($user, $type, $data);
+        }
+
+        return $pushSent;
+    }
+
+    /**
+     * Crée une notification de rappel de dette
+     */
+    public function createDebtReminderNotification(User $user, Dette $dette): Notification
+    {
+        $daysLeft = $dette->getDateEcheance() ? 
+            (new \DateTime())->diff($dette->getDateEcheance())->days : 0;
+        
+        $title = 'Rappel de dette';
+        $message = sprintf(
+            'Votre dette "%s" de %s %s arrive à échéance dans %d jour(s)',
+            $dette->getDescription() ?? 'Dette',
+            number_format($dette->getMontantTotal()),
+            $user->getDevise()?->getCode() ?? 'XOF',
+            $daysLeft
+        );
+
+        $data = [
+            'debt_id' => $dette->getId(),
+            'amount' => $dette->getMontantTotal(),
+            'due_date' => $dette->getDateEcheance()?->format('Y-m-d'),
+            'days_left' => $daysLeft,
+            'currency' => $user->getDevise()?->getCode() ?? 'XOF'
+        ];
+
+        return $this->createNotification($user, Notification::TYPE_DEBT_REMINDER, $title, $message, $data);
+    }
+
+    /**
+     * Crée une notification d'alerte de dépense prévue
+     */
+    public function createProjectAlertNotification(User $user, DepensePrevue $depensePrevue, string $alertType): Notification
+    {
+        $title = 'Alerte de dépense prévue';
+        $message = '';
+        $data = [
+            'project_id' => $depensePrevue->getId(),
+            'project_name' => $depensePrevue->getNom(),
+            'alert_type' => $alertType
+        ];
+
+        switch ($alertType) {
+            case 'budget_exceeded':
+                $budgetPrevu = $depensePrevue->getBudgetPrevu();
+                $montantDepense = $depensePrevue->getMontantDepense();
+                $excessAmount = $montantDepense - (float) $budgetPrevu;
+                
+                $message = sprintf(
+                    'La dépense prévue "%s" a dépassé son budget de %s %s',
+                    $depensePrevue->getNom(),
+                    number_format($excessAmount),
+                    $user->getDevise()?->getCode() ?? 'XOF'
+                );
+                $data['budget'] = $budgetPrevu;
+                $data['spent'] = $montantDepense;
+                break;
+            case 'deadline_approaching':
+                $message = sprintf(
+                    'La dépense prévue "%s" approche de sa date limite',
+                    $depensePrevue->getNom()
+                );
+                break;
+            case 'status_changed':
+                $message = sprintf(
+                    'Le statut de la dépense prévue "%s" a changé',
+                    $depensePrevue->getNom()
+                );
+                $data['new_status'] = $depensePrevue->getStatut();
+                break;
+            default:
+                $message = sprintf(
+                    'Alerte pour la dépense prévue "%s"',
+                    $depensePrevue->getNom()
+                );
+        }
+
+        return $this->createNotification($user, Notification::TYPE_PROJECT_ALERT, $title, $message, $data);
+    }
+
+    /**
+     * Crée une notification de paiement reçu
+     */
+    public function createPaymentReceivedNotification(User $user, Mouvement $mouvement): Notification
+    {
+        $title = 'Paiement reçu';
+        $message = sprintf(
+            'Vous avez reçu %s %s de %s',
+            number_format($mouvement->getMontantTotal()),
+            $user->getDevise()?->getCode() ?? 'XOF',
+            $mouvement->getContact()?->getNom() ?? 'un contact'
+        );
+
+        $data = [
+            'movement_id' => $mouvement->getId(),
+            'amount' => $mouvement->getMontantTotal(),
+            'contact_name' => $mouvement->getContact()?->getNom(),
+            'currency' => $user->getDevise()?->getCode() ?? 'XOF'
+        ];
+
+        return $this->createNotification($user, Notification::TYPE_PAYMENT_RECEIVED, $title, $message, $data);
+    }
+
+    /**
+     * Crée une notification de paiement envoyé
+     */
+    public function createPaymentSentNotification(User $user, Mouvement $mouvement): Notification
+    {
+        $title = 'Paiement envoyé';
+        $message = sprintf(
+            'Vous avez envoyé %s %s à %s',
+            number_format($mouvement->getMontantTotal()),
+            $user->getDevise()?->getCode() ?? 'XOF',
+            $mouvement->getContact()?->getNom() ?? 'un contact'
+        );
+
+        $data = [
+            'movement_id' => $mouvement->getId(),
+            'amount' => $mouvement->getMontantTotal(),
+            'contact_name' => $mouvement->getContact()?->getNom(),
+            'currency' => $user->getDevise()?->getCode() ?? 'XOF'
+        ];
+
+        return $this->createNotification($user, Notification::TYPE_PAYMENT_SENT, $title, $message, $data);
     }
 }
