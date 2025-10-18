@@ -331,4 +331,30 @@ class DepensePrevueService
             'typeBudget' => DepensePrevue::TYPE_BUDGET_CERTAIN
         ]);
     }
+
+    /**
+     * Recalcule le montant dépensé pour une dépense prévue en sommant tous ses mouvements
+     */
+    public function recalculerMontantDepense(DepensePrevue $depensePrevue): void
+    {
+        $montantTotal = 0.0;
+
+        // Parcourir tous les mouvements liés à cette dépense prévue
+        foreach ($depensePrevue->getMouvements() as $mouvement) {
+            // Convertir le montant effectif en float
+            $montantEffectif = (float) $mouvement->getMontantEffectif();
+            $montantTotal += $montantEffectif;
+        }
+
+        // Mettre à jour le montant dépensé
+        $depensePrevue->setMontantDepense(number_format($montantTotal, 2, '.', ''));
+        
+        // Sauvegarder les modifications
+        $this->entityManager->flush();
+        
+        $this->logger->info('Montant dépensé recalculé pour la dépense prévue', [
+            'depense_prevue_id' => $depensePrevue->getId(),
+            'montant_depense' => $depensePrevue->getMontantDepense()
+        ]);
+    }
 }

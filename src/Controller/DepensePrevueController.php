@@ -299,6 +299,9 @@ class DepensePrevueController extends AbstractController
             // Créer le mouvement via le service unifié
             $mouvement = $this->mouvementUnifieService->creerMouvement($user, $donnees['type'], $donnees);
 
+            // Recalculer le montant dépensé après l'ajout du mouvement
+            $this->depensePrevueService->recalculerMontantDepense($depensePrevue);
+
             return ResponseService::created([
                 'mouvement' => $this->serialiserMouvement($mouvement),
                 'projet' => [
