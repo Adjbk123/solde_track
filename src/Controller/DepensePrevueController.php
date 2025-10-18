@@ -208,6 +208,115 @@ class DepensePrevueController extends AbstractController
     }
 
     /**
+     * Récupérer les mouvements d'une dépense prévue
+     */
+    #[Route('/{id}/mouvements', name: 'mouvements', methods: ['GET'])]
+    public function getMouvements(Request $request, int $id): JsonResponse
+    {
+        $user = $this->getUser();
+        if (!$user instanceof User) {
+            return ResponseService::unauthorized();
+        }
+
+        try {
+            $depensePrevue = $this->depensePrevueService->getDepensePrevueById($id, $user);
+            if (!$depensePrevue) {
+                return ResponseService::notFound('Dépense prévue non trouvée');
+            }
+
+            $page = (int) $request->query->get('page', 1);
+            $limit = (int) $request->query->get('limit', 20);
+
+            $mouvementRepo = $this->entityManager->getRepository(\App\Entity\Mouvement::class);
+            
+            $qb = $mouvementRepo->createQueryBuilder('m')
+                ->where('m.user = :user')
+                ->andWhere('m.depensePrevue = :depensePrevue')
+                ->setParameter('user', $user)
+                ->setParameter('depensePrevue', $depensePrevue)
+                ->orderBy('m.date', 'DESC');
+
+            // Compter le total
+            $total = count($qb->getQuery()->getResult());
+            
+            // Pagination
+            $qb->setFirstResult(($page - 1) * $limit)
+               ->setMaxResults($limit);
+
+            $mouvements = $qb->getQuery()->getResult();
+
+            return ResponseService::success([
+                'mouvements' => array_map([$this, 'serialiserMouvement'], $mouvements),
+                'pagination' => [
+                    'page' => $page,
+                    'limit' => $limit,
+                    'total' => $total,
+                    'pages' => ceil($total / $limit)
+                ],
+                'projet' => [
+                    'id' => $depensePrevue->getId(),
+                    'nom' => $depensePrevue->getNom(),
+                    'budgetPrevu' => $depensePrevue->getBudgetPrevu(),
+                    'montantDepense' => $depensePrevue->getMontantDepense(),
+                    'montantRestant' => $depensePrevue->getMontantRestant(),
+                ]
+            ]);
+
+        } catch (\Exception $e) {
+            return ResponseService::serverError($e->getMessage());
+        }
+    }
+
+    /**
+     * Ajouter un mouvement à une dépense prévue
+     */
+    #[Route('/{id}/mouvements', name: 'ajouter_mouvement', methods: ['POST'])]
+    public function ajouterMouvement(Request $request, int $id): JsonResponse
+    {
+        $user = $this->getUser();
+        if (!$user instanceof User) {
+            return ResponseService::unauthorized();
+        }
+
+        try {
+            $depensePrevue = $this->depensePrevueService->getDepensePrevueById($id, $user);
+            if (!$depensePrevue) {
+                return ResponseService::notFound('Dépense prévue non trouvée');
+            }
+
+            $donnees = json_decode($request->getContent(), true);
+            
+            // Validation des données requises
+            if (!isset($donnees['type']) || !isset($donnees['montantTotal']) || !isset($donnees['categorie_id'])) {
+                return ResponseService::error('Données manquantes: type, montantTotal et categorie_id sont requis');
+            }
+
+            // Ajouter l'ID de la dépense prévue aux données
+            $donnees['depense_prevue_id'] = $id;
+
+            // Créer le mouvement via le service unifié
+            $mouvementUnifieService = $this->container->get(\App\Service\MouvementUnifieService::class);
+            $mouvement = $mouvementUnifieService->creerMouvement($user, $donnees['type'], $donnees);
+
+            return ResponseService::created([
+                'mouvement' => $this->serialiserMouvement($mouvement),
+                'projet' => [
+                    'id' => $depensePrevue->getId(),
+                    'nom' => $depensePrevue->getNom(),
+                    'budgetPrevu' => $depensePrevue->getBudgetPrevu(),
+                    'montantDepense' => $depensePrevue->getMontantDepense(),
+                    'montantRestant' => $depensePrevue->getMontantRestant(),
+                ]
+            ], 'Mouvement ajouté au projet avec succès');
+
+        } catch (\InvalidArgumentException $e) {
+            return ResponseService::error($e->getMessage());
+        } catch (\Exception $e) {
+            return ResponseService::serverError($e->getMessage());
+        }
+    }
+
+    /**
      * Modifier une dépense prévue
      */
     #[Route('/{id}', name: 'modifier', methods: ['PUT'])]
@@ -397,6 +506,37 @@ class DepensePrevueController extends AbstractController
     }
 
     // Méthodes privées
+
+    private function serialiserMouvement(\App\Entity\Mouvement $mouvement): array
+    {
+        $user = $this->getUser();
+        $deviseCode = 'XOF'; // Valeur par défaut
+        
+        if ($user instanceof \App\Entity\User && $user->getDevise()) {
+            $deviseCode = $user->getDevise()->getCode();
+        }
+
+        return [
+            'id' => $mouvement->getId(),
+            'type' => $mouvement->getType(),
+            'typeLabel' => $mouvement->getTypeLabel(),
+            'montantEffectif' => $mouvement->getMontantEffectif(),
+            'montantEffectifFormatted' => number_format((float) $mouvement->getMontantEffectif(), 0, ',', ' ') . ' ' . $deviseCode,
+            'description' => $mouvement->getDescription(),
+            'date' => $mouvement->getDate()->format('Y-m-d'),
+            'dateFormatted' => $mouvement->getDate()->format('d/m/Y'),
+            'categorie' => $mouvement->getCategorie() ? [
+                'id' => $mouvement->getCategorie()->getId(),
+                'nom' => $mouvement->getCategorie()->getNom(),
+            ] : null,
+            'compte' => $mouvement->getCompte() ? [
+                'id' => $mouvement->getCompte()->getId(),
+                'nom' => $mouvement->getCompte()->getNom(),
+            ] : null,
+            'statut' => $mouvement->getStatut(),
+            'statutLabel' => $mouvement->getStatutLabel(),
+        ];
+    }
 
     private function extraireFiltres(Request $request): array
     {

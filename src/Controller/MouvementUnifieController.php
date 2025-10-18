@@ -7,6 +7,7 @@ use App\Entity\User;
 use App\Service\MouvementUnifieService;
 use App\Service\ResponseService;
 use App\Service\ValidationService;
+use App\Service\DebtManagementService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -20,7 +21,8 @@ class MouvementUnifieController extends AbstractController
     public function __construct(
         private EntityManagerInterface $entityManager,
         private MouvementUnifieService $mouvementService,
-        private ValidationService $validationService
+        private ValidationService $validationService,
+        private DebtManagementService $debtManagementService
     ) {}
 
     /**
@@ -358,5 +360,47 @@ class MouvementUnifieController extends AbstractController
         }
 
         return $data;
+    }
+
+    /**
+     * Obtenir les catégories compatibles pour un type de dette
+     */
+    #[Route('/debt-categories/{type}', name: 'debt_categories', methods: ['GET'])]
+    public function getDebtCategories(string $type): JsonResponse
+    {
+        $user = $this->getUser();
+        if (!$user instanceof User) {
+            return ResponseService::unauthorized();
+        }
+
+        try {
+            // Valider le type de dette
+            $validTypes = [Mouvement::TYPE_EMPRUNT, Mouvement::TYPE_PRET, Mouvement::TYPE_CREANCE];
+            if (!in_array($type, $validTypes)) {
+                return ResponseService::error('Type de dette invalide. Types valides: ' . implode(', ', $validTypes));
+            }
+
+            // Récupérer les catégories compatibles
+            $categories = $this->debtManagementService->getCompatibleCategoriesForDebtMovement($user, $type);
+
+            // Sérialiser les catégories
+            $categoriesData = array_map(function($categorie) {
+                return [
+                    'id' => $categorie->getId(),
+                    'nom' => $categorie->getNom(),
+                    'type' => $categorie->getType(),
+                    'typeLabel' => $categorie->getTypeLabel(),
+                    'dateCreation' => $categorie->getDateCreation()->format('Y-m-d H:i:s'),
+                ];
+            }, $categories);
+
+            return ResponseService::success([
+                'categories' => $categoriesData,
+                'count' => count($categoriesData)
+            ], 'Catégories compatibles récupérées avec succès');
+
+        } catch (\Exception $e) {
+            return ResponseService::serverError($e->getMessage());
+        }
     }
 }
